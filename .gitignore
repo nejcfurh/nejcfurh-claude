@@ -1,0 +1,4 @@
+.DS_Store
+*.bak.*
+vendor/
+settings.local.json

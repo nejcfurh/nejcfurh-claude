@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# PreToolUse (Bash, git commit): block AI attribution footers in commit messages.
+# Bypass: set SKIP_COAUTHOR_GATE to any non-empty value.
+
+set -u
+
+[ -n "${SKIP_COAUTHOR_GATE:-}" ] && exit 0
+command -v jq >/dev/null 2>&1 || exit 0
+
+payload=$(cat 2>/dev/null) || exit 0
+[ -n "$payload" ] || exit 0
+
+cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
+case "$cmd" in
+  *"git commit"*) : ;;
+  *) exit 0 ;;
+esac
+
+lower=$(printf '%s' "$cmd" | tr '[:upper:]' '[:lower:]')
+case "$lower" in
+  *"co-authored-by"*|*"generated with claude"*)
+    {
+      echo "Blocked: AI attribution is not allowed in this user's commits."
+      echo "Rewrite the commit message without the 'Co-Authored-By' /"
+      echo "'Generated with Claude' attribution footer and commit again."
+      echo "Bypass: set SKIP_COAUTHOR_GATE=1"
+    } >&2
+    exit 2
+    ;;
+esac
+
+exit 0
