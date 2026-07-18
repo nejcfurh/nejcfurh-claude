@@ -1,3 +1,8 @@
+---
+name: verify-done
+description: Run the project's real quality gate — the exact checks CI runs — and report whether this work is done, recording the READY marker the push gate requires. Invoke via /verify-done before pushing any branch.
+---
+
 Run the project's real quality gate — the exact checks CI runs — and report whether this work is done.
 
 ## 1. Discover what CI actually runs
