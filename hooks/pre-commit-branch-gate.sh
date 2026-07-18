@@ -11,18 +11,39 @@ payload=$(cat 2>/dev/null) || exit 0
 [ -n "$payload" ] || exit 0
 
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
-case "$cmd" in
-  *"git commit"*) : ;;
-  *) exit 0 ;;
-esac
-
-# Resolve the repo: cwd first, then the project dir.
-repo=""
-if git -C "$PWD" rev-parse --show-toplevel >/dev/null 2>&1; then
-  repo="$PWD"
-elif [ -n "${CLAUDE_PROJECT_DIR:-}" ] && git -C "$CLAUDE_PROJECT_DIR" rev-parse --show-toplevel >/dev/null 2>&1; then
-  repo="$CLAUDE_PROJECT_DIR"
+# Match both `git commit …` and `git -C <path> commit …` — the -C form has no
+# literal "git commit" substring and would otherwise bypass the gate.
+if ! printf '%s\n' "$cmd" | grep -Eq "git[[:space:]]+-C[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:]]+)[[:space:]]+commit([[:space:]]|\$)"; then
+  case "$cmd" in
+    *"git commit"*) : ;;
+    *) exit 0 ;;
+  esac
 fi
+
+# Resolve the repo the commit actually TARGETS, not just the session cwd —
+# `git -C <path> commit` and `cd <path> && git commit` operate on a different
+# repo, and gating on the cwd's branch false-blocks legitimate cross-repo work.
+target=""
+# git -C with a double-quoted, single-quoted, or bare path.
+target=$(printf '%s\n' "$cmd" | sed -n 's/.*git -C[[:space:]]\{1,\}"\([^"]*\)".*/\1/p' | head -1)
+[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n "s/.*git -C[[:space:]]\{1,\}'\([^']*\)'.*/\1/p" | head -1)
+[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n 's/.*git -C[[:space:]]\{1,\}\([^"'"'"'[:space:]][^[:space:]]*\).*/\1/p' | head -1)
+# Leading `cd <path> &&` (same quoting variants).
+[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n '1s/^cd[[:space:]]\{1,\}"\([^"]*\)"[[:space:]]*&&.*/\1/p')
+[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n "1s/^cd[[:space:]]\{1,\}'\([^']*\)'[[:space:]]*&&.*/\1/p")
+[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n '1s/^cd[[:space:]]\{1,\}\([^[:space:]]*\)[[:space:]]*&&.*/\1/p')
+# Unexpanded variables in the extracted path can't be resolved here — ignore.
+case "$target" in *'$'*) target="" ;; esac
+
+repo=""
+for cand in "$target" "$PWD" "${CLAUDE_PROJECT_DIR:-}"; do
+  [ -n "$cand" ] || continue
+  [ -d "$cand" ] || continue
+  if git -C "$cand" rev-parse --show-toplevel >/dev/null 2>&1; then
+    repo="$cand"
+    break
+  fi
+done
 [ -n "$repo" ] || exit 0
 
 branch=$(git -C "$repo" branch --show-current 2>/dev/null)

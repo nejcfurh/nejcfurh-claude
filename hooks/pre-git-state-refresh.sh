@@ -14,8 +14,16 @@ emit() {
 
 command -v jq >/dev/null 2>&1 || exit 0
 
-# Consume the stdin payload; only the environment matters here.
-cat >/dev/null 2>&1 || true
+payload=$(cat 2>/dev/null) || exit 0
+[ -n "$payload" ] || exit 0
+
+# Only refresh for commands that act on PR state — anything else would pay a
+# GitHub API round-trip on every Bash call.
+cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
+case "$cmd" in
+  *"git push"*|*"git commit"*|*"gh pr "*) : ;;
+  *) exit 0 ;;
+esac
 
 # Resolve the repo: cwd first, then the project dir.
 repo=""
