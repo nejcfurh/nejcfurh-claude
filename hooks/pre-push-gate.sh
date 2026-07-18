@@ -12,10 +12,9 @@ payload=$(cat 2>/dev/null) || exit 0
 [ -n "$payload" ] || exit 0
 
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
-case "$cmd" in
-  *"git push"*) : ;;
-  *) exit 0 ;;
-esac
+# Match both `git push …` and `git -C <path> push …` — the -C form has no
+# literal "git push" substring and would otherwise bypass the gate.
+printf '%s\n' "$cmd" | grep -Eq "git[[:space:]]+(-C[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:]]+)[[:space:]]+)?push([[:space:]]|\$)" || exit 0
 
 # Nearest package.json walking up (stop at $HOME or /), from $PWD
 # then falling back to $CLAUDE_PROJECT_DIR.

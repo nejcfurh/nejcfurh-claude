@@ -81,6 +81,7 @@ Domain-expert subagents, spawned via the Agent tool for substantial work in thei
 | `pre-commit-conventional-gate.sh` | git commit | enforces conventional commits |
 | `pre-git-state-refresh.sh` | git/gh writes | injects ground-truth PR state |
 | `pre-pr-test-gate.sh` | gh pr create | tests must pass |
+| `pre-push-branch-gate.sh` | git push | blocks pushes targeting the repo's default branch, whatever its name — bare `git push`, `HEAD`, refspecs, `--all`, `--delete` |
 | `pre-push-gate.sh` | git push | lint + typecheck + test + build |
 | `symlink-check.sh` | session start | warns on symlink drift |
 

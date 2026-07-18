@@ -18,11 +18,13 @@ payload=$(cat 2>/dev/null) || exit 0
 [ -n "$payload" ] || exit 0
 
 # Only refresh for commands that act on PR state — anything else would pay a
-# GitHub API round-trip on every Bash call.
+# GitHub API round-trip on every Bash call. Covers `git -C <path>` forms too.
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
 case "$cmd" in
   *"git push"*|*"git commit"*|*"gh pr "*) : ;;
-  *) exit 0 ;;
+  *)
+    printf '%s\n' "$cmd" | grep -Eq "git[[:space:]]+-C[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:]]+)[[:space:]]+(push|commit)([[:space:]]|\$)" || exit 0
+    ;;
 esac
 
 # Resolve the repo: cwd first, then the project dir.

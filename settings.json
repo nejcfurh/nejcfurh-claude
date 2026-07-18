@@ -138,13 +138,7 @@
           {
             "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/pre-git-state-refresh.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(git push *)",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-git-state-refresh.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(git commit *)",
+            "if": "Bash(git *)",
             "timeout": 15
           },
           {
@@ -161,26 +155,32 @@
           },
           {
             "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/pre-push-branch-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
+            "if": "Bash(git *)",
+            "timeout": 15
+          },
+          {
+            "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/pre-push-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(git push *)",
+            "if": "Bash(git *)",
             "timeout": 300
           },
           {
             "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/pre-commit-branch-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(git commit *)",
+            "if": "Bash(git *)",
             "timeout": 30
           },
           {
             "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/pre-commit-coauthor-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(git commit *)",
+            "if": "Bash(git *)",
             "timeout": 10
           },
           {
             "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/pre-commit-conventional-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(git commit *)",
+            "if": "Bash(git *)",
             "timeout": 10
           }
         ]
