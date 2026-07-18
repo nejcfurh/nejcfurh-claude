@@ -128,8 +128,7 @@
       "Bash(git push --force *)",
       "Bash(git push -f *)",
       "Bash(git reset --hard *)",
-      "Bash(git clean -fd *)",
-      "Bash(git clean -f *)",
+      "Bash(gh repo delete *)",
       "Bash(git push origin main *)",
       "Bash(git push * main)",
       "Bash(gh pr merge *)",
@@ -145,7 +144,16 @@
       "Bash(*DROP DATABASE*)",
       "Bash(*TRUNCATE TABLE*)"
     ],
-    "defaultMode": "acceptEdits"
+    "ask": [
+      "Bash(git clean -fd *)",
+      "Bash(git clean -f *)",
+      "Bash(npm publish*)"
+    ],
+    "defaultMode": "auto"
+  },
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true
   },
   "model": "claude-fable-5[1m]",
   "hooks": {
