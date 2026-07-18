@@ -71,6 +71,20 @@ git -C "$upstream" push -q origin main 2>/dev/null
 git -C "$upstream" commit -q --allow-empty -m "feat: mine"
 run_case "foreign commit already upstream ignored" 0 "$upstream" 'git push'
 
+# Stacking on a colleague's fetched branch must not block: their commits are
+# reachable from refs/remotes/*, so only the user's own additions count.
+stacked=$(make_repo)
+git -C "$stacked" checkout -q -b tmp-colleague
+GIT_AUTHOR_NAME=colleague GIT_AUTHOR_EMAIL=colleague@test \
+  git -C "$stacked" commit -q --allow-empty -m "colleague work"
+git -C "$stacked" push -q origin tmp-colleague:colleague-branch
+git -C "$stacked" checkout -q main
+git -C "$stacked" branch -q -D tmp-colleague
+git -C "$stacked" fetch -q origin
+git -C "$stacked" checkout -q -b feat/stacked --no-track origin/colleague-branch
+git -C "$stacked" commit -q --allow-empty -m "feat: my addition"
+run_case "stacked on colleague branch allowed" 0 "$stacked" 'git push -u origin feat/stacked'
+
 # No remote at all -> range undeterminable -> never block.
 lone=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 (cd "$lone" && git init -q -b main && git config user.email me@test \
@@ -93,7 +107,7 @@ else
   fail=$((fail + 1))
 fi
 
-rm -rf "$mine" "$foreign" "$upstream" "$lone"
+rm -rf "$mine" "$foreign" "$upstream" "$stacked" "$lone"
 
 echo ""
 echo "$pass passed, $fail failed"

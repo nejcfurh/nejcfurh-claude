@@ -2,8 +2,9 @@
 # PreToolUse (Bash, git push): block pushes whose outgoing commits carry an
 # author other than the configured user — the signature of fixture commits,
 # tooling artifacts, or another branch's history riding along unnoticed.
-# Outgoing = upstream..HEAD, falling back to origin/<default>..HEAD for
-# branches with no upstream yet. Never blocks when the range, the remote, or
+# Outgoing = HEAD --not --remotes: anything already fetched from a remote
+# (a colleague's branch you stacked on) is fine; commits that exist nowhere
+# but this clone must be the user's own. Never blocks when remote state or
 # the user email cannot be determined.
 # Bypass: set SKIP_PUSH_AUTHOR_GATE to any non-empty value.
 
@@ -54,31 +55,20 @@ done
 me=$(git -C "$repo" config user.email 2>/dev/null)
 [ -n "$me" ] || exit 0
 
-# The range this push would publish: upstream first, default branch fallback.
-range=""
-if git -C "$repo" rev-parse --verify --quiet '@{u}' >/dev/null 2>&1; then
-  range='@{u}..HEAD'
-else
-  default=$(git -C "$repo" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')
-  if [ -z "$default" ]; then
-    if git -C "$repo" rev-parse --verify --quiet origin/main >/dev/null; then
-      default="main"
-    elif git -C "$repo" rev-parse --verify --quiet origin/master >/dev/null; then
-      default="master"
-    fi
-  fi
-  [ -n "$default" ] || exit 0
-  range="origin/$default..HEAD"
-fi
+# Outgoing = commits not reachable from ANY remote ref. Work fetched from a
+# colleague lives under refs/remotes/* and is excluded, so stacking on their
+# branch never blocks — only commits that exist nowhere but this clone must
+# be the user's own. No remote refs at all -> undeterminable, never block.
+git -C "$repo" for-each-ref --count=1 refs/remotes | grep -q . || exit 0
 
-foreign=$(git -C "$repo" log --format='%h %ae  %s' "$range" 2>/dev/null \
+foreign=$(git -C "$repo" log --format='%h %ae  %s' HEAD --not --remotes 2>/dev/null \
   | awk -v me="$me" 'BEGIN { IGNORECASE = 0 } { if (tolower($2) != tolower(me)) print }')
 [ -n "$foreign" ] || exit 0
 
 count=$(printf '%s\n' "$foreign" | wc -l | tr -d '[:space:]')
 "$(dirname "$0")/record-gate-block.sh" "pre-push-author-gate" "$payload" 2>/dev/null || true
 {
-  echo "Blocked: $count outgoing commit(s) ($range) are not authored by $me."
+  echo "Blocked: $count outgoing commit(s) (HEAD --not --remotes) are not authored by $me."
   echo "Fixture commits, tooling artifacts, or another branch's history may be riding along:"
   echo ""
   printf '%s\n' "$foreign" | head -10
