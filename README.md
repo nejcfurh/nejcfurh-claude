@@ -33,6 +33,7 @@ Everything is symlinked, so edits in `~/.claude` and in the repo are the same fi
 | `agents/` | Opt-in subagent personas — see [Personas](#personas) |
 | `hooks/` | Full quality gates (see below) |
 | `scripts/` | `setup.sh`, `statusline.sh`, `notify.sh`, `chime.sh` (Stop/Notification sound), `detect-parent-branch.sh` (stacked-PR base detection) |
+| `tests/` | Regression suites for every hook and script with gate logic — `bash tests/run-all.sh` |
 | `settings.json` | ~100-rule security deny-list, hook wiring, plugins, statusline |
 
 ## Workflow (lightweight by default)
@@ -83,7 +84,7 @@ Domain-expert subagents, spawned via the Agent tool for substantial work in thei
 | `pre-push-gate.sh` | git push | lint + typecheck + test + build |
 | `symlink-check.sh` | session start | warns on symlink drift |
 
-All hooks detect the package manager from the lockfile (bun/pnpm/yarn/npm) and have `SKIP_*` env bypasses for emergencies.
+All hooks detect the package manager from the lockfile (bun/pnpm/yarn/npm) and have `SKIP_*` env bypasses for emergencies. The commit gates match both `git commit` and cross-repo forms (`git -C <path> commit`, `cd <path> && git commit`) and gate on the branch of the repo the commit actually targets. Every gate has a regression suite in `tests/` (`bash tests/run-all.sh`).
 
 ## Licensing
 
