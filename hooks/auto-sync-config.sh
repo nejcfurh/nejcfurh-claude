@@ -6,7 +6,16 @@
 
 set -u
 
-repo="${CLAUDE_CONFIG_REPO:-$HOME/Desktop/WebDev/Projects/nejcfurh-claude}"
+# Locate the config repo through the symlink setup.sh created — a hardcoded
+# clone path would break the "clone anywhere, run setup" install story.
+repo="${CLAUDE_CONFIG_REPO:-}"
+if [ -z "$repo" ] && [ -L "$HOME/.claude/CLAUDE.md" ]; then
+  link_target=$(readlink "$HOME/.claude/CLAUDE.md")
+  case "$link_target" in
+    /*) repo=$(dirname "$link_target") ;;
+  esac
+fi
+[ -n "$repo" ] || exit 0
 stamp="$HOME/.claude/cache/config-repo-last-fetch"
 interval=$((6 * 3600))
 

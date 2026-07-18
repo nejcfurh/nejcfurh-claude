@@ -4,7 +4,27 @@
 
 set -u
 
-repo="${CLAUDE_CONFIG_REPO:-$HOME/Desktop/WebDev/Projects/nejcfurh-claude}"
+# Locate the config repo through the CLAUDE.md symlink itself — a hardcoded
+# clone path would break the "clone anywhere, run setup" install story. When
+# even CLAUDE.md is not linked, nothing can be verified against a repo; warn
+# about that directly instead of guessing a path.
+repo="${CLAUDE_CONFIG_REPO:-}"
+if [ -z "$repo" ] && [ -L "$HOME/.claude/CLAUDE.md" ]; then
+  link_target=$(readlink "$HOME/.claude/CLAUDE.md")
+  case "$link_target" in
+    /*) repo=$(dirname "$link_target") ;;
+  esac
+fi
+if [ -z "$repo" ]; then
+  echo "[symlink-check] ~/.claude/CLAUDE.md is not a symlink into the config repo -- run scripts/setup.sh from your clone of nejcfurh-claude."
+  exit 0
+fi
+
+# Every git gate parses its payload with jq and fails OPEN without it: a
+# machine missing jq has the whole enforcement layer silently disabled.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "[symlink-check] jq is NOT installed -- every git quality gate is silently disabled. Install it now: brew install jq"
+fi
 
 # Canonicalize a path (best effort; falls back to the raw path).
 resolve() {
@@ -18,7 +38,9 @@ resolve() {
 }
 
 drifted=""
-for item in CLAUDE.md settings.json rules skills agents commands hooks scripts; do
+# Keep in sync with ITEMS in scripts/setup.sh — lint-config.sh enforces it.
+ITEMS="CLAUDE.md settings.json rules skills agents hooks scripts"
+for item in $ITEMS; do
   link="$HOME/.claude/$item"
   expected="$repo/$item"
   ok=0
