@@ -14,6 +14,22 @@ TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 CHECK=0
 [ "${1:-}" = "--check" ] && CHECK=1
 
+# Every git gate parses its hook payload with jq and fails OPEN without it —
+# a machine missing jq has the whole enforcement layer silently disabled.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "WARNING: jq is not installed. ALL git quality gates (branch, force,"
+  echo "         verify, author, secret, ...) fail open and are silently"
+  echo "         disabled until it is. Install it first: brew install jq"
+  echo
+fi
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "note: gitleaks not found — the pre-commit secret gate falls back to"
+  echo "      built-in patterns only. Recommended: brew install gitleaks"
+  echo
+fi
+
+# "commands" stays listed after its removal from the repo so re-running setup
+# cleans up the dangling ~/.claude/commands link on already-installed machines.
 ITEMS=(
   "CLAUDE.md"
   "settings.json"
@@ -33,7 +49,14 @@ link_item() {
   local dst="$CLAUDE_DIR/$name"
 
   if [ ! -e "$src" ]; then
-    echo "SKIP    $name (missing in repo)"
+    # A link we created earlier whose repo source is gone would dangle
+    # forever — remove it. Anything else in the way is not ours to touch.
+    if [ -L "$dst" ] && [ "$(readlink "$dst")" = "$src" ]; then
+      echo "UNLINK  $name (removed from repo)"
+      [ "$CHECK" -eq 1 ] || rm "$dst"
+    else
+      echo "SKIP    $name (missing in repo)"
+    fi
     return
   fi
 

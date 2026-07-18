@@ -30,7 +30,6 @@
       "WebFetch(domain:docs.anthropic.com)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:docs.github.com)",
-      "mcp__context7__get-library-docs",
       "mcp__context7__resolve-library-id",
       "mcp__context7__query-docs",
       "mcp__dash-api__list_installed_docsets",
@@ -116,12 +115,17 @@
       "Edit(**/bun.lock)",
       "Bash(*DROP TABLE*)",
       "Bash(*DROP DATABASE*)",
-      "Bash(*TRUNCATE TABLE*)"
+      "Bash(*TRUNCATE TABLE*)",
+      "Bash(*drop table*)",
+      "Bash(*drop database*)",
+      "Bash(*truncate table*)"
     ],
     "ask": [
       "Bash(git clean -fd *)",
       "Bash(git clean -f *)",
-      "Bash(npm publish*)"
+      "Bash(npm publish*)",
+      "Bash(rm -r *)",
+      "Bash(rm -fr *)"
     ],
     "defaultMode": "auto"
   },
@@ -137,9 +141,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-git-state-refresh.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
+            "command": "HOOK=\"$HOME/.claude/hooks/git-gate-dispatch.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
             "if": "Bash(git *)",
-            "timeout": 15
+            "timeout": 480
           },
           {
             "type": "command",
@@ -155,63 +159,9 @@
           },
           {
             "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-push-branch-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(git *)",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-push-force-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(git *)",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-push-verify-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(git *)",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-push-author-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(git *)",
-            "timeout": 15
-          },
-          {
-            "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/pre-merge-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
             "if": "Bash(gh *)",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-push-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(git *)",
-            "timeout": 300
-          },
-          {
-            "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-commit-branch-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(git *)",
-            "timeout": 30
-          },
-          {
-            "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-commit-coauthor-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(git *)",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-commit-conventional-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(git *)",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-commit-secret-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(git *)",
-            "timeout": 60
           }
         ]
       }

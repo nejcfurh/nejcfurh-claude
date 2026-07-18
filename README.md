@@ -22,14 +22,15 @@ bash scripts/setup.sh           # symlink into ~/.claude + install refactoring-u
 
 Everything is symlinked, so edits in `~/.claude` and in the repo are the same files — commit when it stabilizes. Existing files are backed up to `<path>.bak.<timestamp>`. Machine-local overrides (env vars, experiments) go in `~/.claude/settings.local.json`, which is never symlinked or committed.
 
+Gate prerequisites: **`jq` is required** — every git gate parses its hook payload with it and fails *open* without it, so a machine missing jq has the whole enforcement layer silently disabled (`setup.sh` and the session-start symlink check both warn loudly). `gitleaks` is recommended — without it the secret gate falls back to built-in patterns only.
+
 ## What's inside
 
 | Path | Contents |
 | --- | --- |
 | `CLAUDE.md` | Core global rules: priority order, workflow, behavioral rules, security, environment |
 | `rules/` | Auto-loaded conventions: communication, comments, git, typescript, tests, engineering principles, context7 |
-| `skills/` | Workflow: `grill`, `build`, `ship`, `debug`, `test`, `prune`, `spec`, `review-pr`, `address-pr-comment`, `commit`, `pr`, `rebase`, `handoff`, `verify-frontend-change`, `retro` · Docs: `context7-mcp`, `find-docs`, `review-code` · Design (Emil Kowalski): `emil-design-eng`, `apple-design`, `animation-vocabulary`, `find-animation-opportunities`, `improve-animations`, `review-animations` |
-| `commands/` | `/verify-done` — discover what CI runs and run exactly that |
+| `skills/` | Workflow: `grill`, `build`, `verify-done`, `ship`, `debug`, `test`, `prune`, `spec`, `review-pr`, `address-pr-comment`, `commit`, `pr`, `rebase`, `handoff`, `verify-frontend-change`, `retro` · Docs: `context7-mcp`, `find-docs`, `review-code` · Design (Emil Kowalski): `emil-design-eng`, `apple-design`, `animation-vocabulary`, `find-animation-opportunities`, `improve-animations`, `review-animations` |
 | `agents/` | Opt-in subagent personas — see [Personas](#personas) |
 | `hooks/` | Full quality gates (see below) |
 | `scripts/` | `setup.sh`, `statusline.sh`, `notify.sh`, `chime.sh` (Stop/Notification sound), `detect-parent-branch.sh` (stacked-PR base detection), `lint-config.sh` (CI lint of hook wiring, frontmatter, dead references) |
@@ -74,6 +75,7 @@ Domain-expert subagents, spawned via the Agent tool for substantial work in thei
 
 | Hook | Fires on | Does |
 | --- | --- | --- |
+| `git-gate-dispatch.sh` | any git command | the single PreToolUse entry for all git gates below: parses the payload once and routes by subcommand, so `git status` costs one process instead of ten; runs `pre-git-state-refresh` last and only when nothing blocked |
 | `auto-format.sh` | file edit | Biome/Prettier format |
 | `post-edit-typecheck.sh` | .ts/.tsx edit | typecheck + lint |
 | `invalidate-verify-marker.sh` | file edit | deletes the repo's `/verify-done` marker — checks that passed before an edit say nothing about the tree after it |
@@ -86,11 +88,12 @@ Domain-expert subagents, spawned via the Agent tool for substantial work in thei
 | `pre-pr-test-gate.sh` | gh pr create | tests must pass |
 | `pre-push-branch-gate.sh` | git push | blocks pushes targeting the repo's default branch, whatever its name — bare `git push`, `HEAD`, refspecs, `--all`, `--delete` |
 | `pre-push-author-gate.sh` | git push | blocks pushes whose outgoing commits carry a foreign author — fixture commits and tooling artifacts never ride along unnoticed |
-| `pre-push-force-gate.sh` | git push | blocks bare `--force`/`-f` in any command form; `--force-with-lease` stays allowed |
-| `pre-push-verify-gate.sh` | git push | requires a fresh `/verify-done` READY marker (`.git/verify-done-ok`); edits invalidate it, TTL backstop expires it |
+| `pre-push-force-gate.sh` | git push | blocks bare force pushes in any command form — `--force`, `-f`, bundled shorts (`-fu`), `+refspec` pushes, flags on continuation lines; `--force-with-lease` stays allowed |
+| `pre-push-verify-gate.sh` | git push | requires a fresh `/verify-done` READY marker (`.git/verify-done-ok`); edits invalidate it, TTL backstop expires it; deletion-only (`--delete`, `:branch`) and tag-only pushes exempt |
 | `pre-push-gate.sh` | git push | lint + typecheck + test + build |
 | `retro-nudge.sh` | session stop | after ≥3 gate blocks in a session, suggests `/retro` once so the friction gets encoded, not repeated |
-| `symlink-check.sh` | session start | warns on symlink drift |
+| `symlink-check.sh` | session start | warns on symlink drift and on a missing `jq` (which would silently disable every gate) |
+| `auto-sync-config.sh` | session start | fast-forwards the config repo from origin when clean and on main (throttled; repo located via the `CLAUDE.md` symlink, not a hardcoded path) |
 
 Hook-authoring rule: command-matching gates need negative tests where the trigger text appears as *data* — quoted arguments, heredoc bodies, prose — not just as a command. The merge gate shipped with two such false positives (it blocked its own release PR twice) before this was encoded.
 

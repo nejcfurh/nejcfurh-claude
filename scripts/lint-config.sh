@@ -55,6 +55,37 @@ for f in "$REPO"/hooks/*.sh "$REPO"/scripts/*.sh "$REPO"/tests/*.sh; do
 done
 ok "bash -n + executable bits checked"
 
+echo "== setup.sh / symlink-check.sh item coverage"
+# Every top-level config entry Claude Code consumes must be symlinked by
+# setup.sh and watched by symlink-check.sh — a new directory that is not
+# listed silently never reaches ~/.claude. setup.sh may list EXTRA items
+# (tombstones that clean up dangling links); symlink-check.sh must not.
+setup_items=$(sed -n '/^ITEMS=(/,/^)/p' "$REPO/scripts/setup.sh" | grep -oE '"[^"]+"' | tr -d '"' | tr '\n' ' ')
+check_items=$(grep -m1 '^ITEMS=' "$REPO/hooks/symlink-check.sh" | sed 's/^ITEMS="//; s/"$//')
+expected="CLAUDE.md settings.json"
+for d in "$REPO"/*/; do
+  d=$(basename "$d")
+  case "$d" in tests|vendor|node_modules) continue ;; esac
+  expected="$expected $d"
+done
+for item in $expected; do
+  case " $setup_items " in
+    *" $item "*) : ;;
+    *) err "$item exists in the repo but is missing from ITEMS in scripts/setup.sh" ;;
+  esac
+  case " $check_items " in
+    *" $item "*) : ;;
+    *) err "$item exists in the repo but is missing from ITEMS in hooks/symlink-check.sh" ;;
+  esac
+done
+for item in $check_items; do
+  case " $expected " in
+    *" $item "*) : ;;
+    *) err "hooks/symlink-check.sh watches '$item', which no longer exists in the repo" ;;
+  esac
+done
+ok "setup/symlink-check items checked"
+
 echo "== skill frontmatter"
 for f in "$REPO"/skills/*/SKILL.md; do
   rel="${f#"$REPO"/}"

@@ -17,17 +17,38 @@ payload=$(cat 2>/dev/null) || exit 0
 
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
 
-# Match `git push …` and `git -C <path> push …`.
-printf '%s\n' "$cmd" | grep -Eq "git[[:space:]]+(-C[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:]]+)[[:space:]]+)?push([[:space:]]|\$)" || exit 0
+# Join backslash-continued lines: a flag on a continuation line is still part
+# of this push. Real newlines keep separating commands (cut below).
+cmd=$(printf '%s\n' "$cmd" | awk '{ if (sub(/\\$/, "")) printf "%s ", $0; else print }')
 
-# Deletion-only and tag-only pushes publish no new code — exempt.
-rest="${cmd#*push}"
-rest=$(printf '%s\n' "$rest" | head -1 | sed 's/[;&|].*//')
+# Quoted spans are data, not arguments: a commit message mentioning `git push`
+# must not put this command through the push gates. Scan a copy with quoted
+# content emptied — awk reads the whole input as one record so quotes spanning
+# lines strip too (\047 = single quote).
+scan=$(printf '%s' "$cmd" | awk 'BEGIN{RS="\001"} {gsub("\"[^\"]*\"","\"\""); gsub("\047[^\047]*\047","\047\047"); printf "%s", $0}')
+
+# Match `git push …` and `git -C <path> push …`.
+git_push_re="git[[:space:]]+(-C[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:]]+)[[:space:]]+)?push"
+printf '%s\n' "$scan" | grep -Eq "${git_push_re}([[:space:]]|\$)" || exit 0
+
+# Deletion-only and tag-only pushes publish no new code — exempt. The
+# old-style delete refspec (`git push origin :dead`) counts too, but only
+# when EVERY refspec is a deletion — a mixed push still publishes code.
+# Arguments are anchored on the `git … push` match itself — NOT on the word
+# "push" anywhere, which latches onto data like pre-push-*.sh filenames.
+rest=$(printf '%s\n' "$scan" | sed -nE "s/.*${git_push_re}([[:space:]]|\$)//p" | head -1 | sed 's/[;&|].*//')
+seen_remote=0
+colon_deletes=0
+other_refspecs=0
 for tok in $rest; do
   case "$tok" in
     --delete|-d|--tags|--follow-tags) exit 0 ;;
+    -*) : ;;
+    :*) colon_deletes=1 ;;
+    *) if [ "$seen_remote" -eq 0 ]; then seen_remote=1; else other_refspecs=1; fi ;;
   esac
 done
+[ "$colon_deletes" -eq 1 ] && [ "$other_refspecs" -eq 0 ] && exit 0
 
 # Resolve the repo the push actually targets (same approach as the other
 # push gates): `git -C <path>` or a leading `cd <path> &&` wins over the cwd.

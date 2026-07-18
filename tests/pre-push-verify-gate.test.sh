@@ -55,7 +55,17 @@ run_case "push with stale marker blocked" 2 "$stale" 'git push origin feat/topic
 
 run_case "deletion push exempt" 0 "$bare" 'git push origin --delete feat/old'
 run_case "tag push exempt" 0 "$bare" 'git push origin --tags'
+run_case "colon delete refspec exempt" 0 "$bare" 'git push origin :feat/old'
+run_case "mixed delete and branch push blocked" 2 "$bare" \
+  'git push origin feat/topic :feat/old'
+run_case "delete flag on continuation line exempt" 0 "$bare" 'git push origin \
+  --delete feat/old'
 run_case "non-push command ignored" 0 "$bare" 'git status'
+
+# The false positive that blocked this fix's own release commit: `git push`
+# quoted inside a commit message must not put the commit through push gates.
+run_case "commit message mentioning git push not gated" 0 "$bare" \
+  'git commit -m "docs: exempt the git push origin :dead form, but only sometimes"'
 
 run_case "git -C fresh repo allowed from bare cwd" 0 "$bare" \
   "git -C $fresh push origin feat/topic"
