@@ -89,7 +89,7 @@ If any of the three is missing, skip the ADR. Use the format in [ADR-FORMAT.md](
 
 ## Panel grilling (optional)
 
-For cross-domain plans, optionally spawn the relevant persona subagents (`frontend-staff-engineer`, `backend-staff-engineer`, `cybersecurity-expert`, `database-master`, `product-manager` for scope tension) in parallel via the Agent tool, each with a read-only brief and a distinct stance to argue.
+For cross-domain plans, optionally spawn the relevant persona subagents (`frontend-staff-engineer`, `backend-staff-engineer`, `cybersecurity-expert`, `database-master`, `product-manager` for scope tension, `ai-engineer` for plans touching LLM features) in parallel via the Agent tool, each with a read-only brief and a distinct stance to argue.
 Fold their conflicts and disagreements into the next question you put to the user.
 Keep the user-facing cadence to one question at a time; skip the panel for single-domain plans.
 

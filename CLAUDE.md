@@ -39,10 +39,11 @@ Trivial bypass: typos, single-line fixes, version bumps, config tweaks — skip 
 ## Learning from mistakes
 
 - When corrected, update the relevant rule file or CLAUDE.md so the mistake is not repeated. Check whether an existing rule already covers it — update rather than duplicate.
+- After a session that went sideways or required corrections, run `/retro` — it grades the trajectory and encodes the fixes (hook > rule > skill > memory) instead of leaving them as good intentions.
 
 ## Environment
 
 - macOS, zsh. Stack: TypeScript, React, React Native, Next.js, NestJS, PostgreSQL.
 - Package manager varies per project — detect from the lockfile, never assume npm.
 - Figma MCP is available for design work; Context7 MCP for library docs (see `rules/context7.md`).
-- Custom subagents available for deep domain work: `frontend-staff-engineer`, `backend-staff-engineer`, `cybersecurity-expert`, `database-master`, `product-manager` (MVP scope discipline). Spawn via the Agent tool for substantial work in those domains; skip for trivial changes.
+- Custom subagents available for deep domain work: `frontend-staff-engineer`, `backend-staff-engineer`, `cybersecurity-expert`, `database-master`, `product-manager` (MVP scope discipline), `ai-engineer` (LLM features, evals, agent harnesses). Spawn via the Agent tool for substantial work in those domains; skip for trivial changes.

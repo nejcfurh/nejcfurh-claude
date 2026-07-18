@@ -18,7 +18,7 @@ Everything is symlinked, so edits in `~/.claude` and in the repo are the same fi
 | --- | --- |
 | `CLAUDE.md` | Core global rules: priority order, workflow, behavioral rules, security, environment |
 | `rules/` | Auto-loaded conventions: communication, comments, git, typescript, tests, engineering principles, context7 |
-| `skills/` | Workflow: `grill`, `build`, `ship`, `debug`, `test`, `prune`, `spec`, `review-pr`, `commit`, `pr`, `rebase`, `handoff`, `verify-frontend-change` · Docs: `context7-mcp`, `find-docs`, `review-code` · Design (Emil Kowalski): `emil-design-eng`, `apple-design`, `animation-vocabulary`, `find-animation-opportunities`, `improve-animations`, `review-animations` |
+| `skills/` | Workflow: `grill`, `build`, `ship`, `debug`, `test`, `prune`, `spec`, `review-pr`, `commit`, `pr`, `rebase`, `handoff`, `verify-frontend-change`, `retro` · Docs: `context7-mcp`, `find-docs`, `review-code` · Design (Emil Kowalski): `emil-design-eng`, `apple-design`, `animation-vocabulary`, `find-animation-opportunities`, `improve-animations`, `review-animations` |
 | `commands/` | `/verify-done` — discover what CI runs and run exactly that |
 | `agents/` | Opt-in subagent personas — see [Personas](#personas) |
 | `hooks/` | Full quality gates (see below) |
@@ -57,6 +57,7 @@ Domain-expert subagents, spawned via the Agent tool for substantial work in thei
 | `cybersecurity-expert` | Security reviews, threat modeling, auth design (OAuth/JWT/sessions), vulnerability analysis, dependency audits | Parameterized queries, no JWT in localStorage, bcrypt cost ≥ 12, magic-byte upload validation, SSRF allowlists |
 | `database-master` | PostgreSQL (deep) + MySQL, MongoDB, Redis — modeling, query optimization, indexing, zero-downtime migrations | EXPLAIN-backed claims, keyset pagination, `CREATE INDEX CONCURRENTLY`, ESR index rule (Mongo), TTLs everywhere (Redis), pick the store for the workload |
 | `product-manager` | MVP/v1 scoping, "should we build this", feature planning, scope-creep review | Riskiest assumption first, kill-criterion before first commit, no settings screens in v1, every cut gets a revival trigger, walking skeleton over breadth |
+| `ai-engineer` | LLM features, agents, tool-calling flows, eval design, prompt pipelines | No agent feature without an eval set, outcome + trajectory graded separately, idempotency keys on mutating tools, preconditions on writes, single-writer state, tool-level gates over prompt pleading |
 
 ## Hooks (full gates)
 
