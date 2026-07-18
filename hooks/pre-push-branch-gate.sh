@@ -17,8 +17,20 @@ payload=$(cat 2>/dev/null) || exit 0
 
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
 
+# Join backslash-continued lines: a refspec on a continuation line is still
+# part of this push. Real newlines keep separating commands (cut below).
+cmd=$(printf '%s\n' "$cmd" | awk '{ if (sub(/\\$/, "")) printf "%s ", $0; else print }')
+
+# Quoted spans are data, not arguments: a commit message mentioning `git push`
+# must not put this command through the push gates. Scan a copy with quoted
+# content emptied — awk reads the whole input as one record so quotes spanning
+# lines strip too (\047 = single quote). The -C target extraction below still
+# reads $cmd: quoted paths must survive there.
+scan=$(printf '%s' "$cmd" | awk 'BEGIN{RS="\001"} {gsub("\"[^\"]*\"","\"\""); gsub("\047[^\047]*\047","\047\047"); printf "%s", $0}')
+
 # Match `git push …` and `git -C <path> push …`.
-printf '%s\n' "$cmd" | grep -Eq "git[[:space:]]+(-C[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:]]+)[[:space:]]+)?push([[:space:]]|\$)" || exit 0
+git_push_re="git[[:space:]]+(-C[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:]]+)[[:space:]]+)?push"
+printf '%s\n' "$scan" | grep -Eq "${git_push_re}([[:space:]]|\$)" || exit 0
 
 # Resolve the repo the push actually targets (same approach as the commit
 # branch gate): `git -C <path>` or a leading `cd <path> &&` wins over the cwd.
@@ -53,12 +65,12 @@ if [ -z "$default" ]; then
 fi
 [ -n "$default" ] || exit 0
 
-# Arguments of the push invocation: everything after the first `push`, cut at
-# the next command separator. Pragmatic — quoted separators inside messages
-# are not push arguments anyway, and a misparse degrades to the conservative
-# current-branch check below.
-rest="${cmd#*push}"
-rest=$(printf '%s\n' "$rest" | head -1 | sed 's/[;&|].*//')
+# Arguments of the push invocation: anchored on the `git … push` match itself
+# — NOT on the word "push" anywhere, which latches onto data like the
+# pre-push-*.sh filenames — cut at the next command separator. Pragmatic —
+# quoted separators inside messages are not push arguments anyway, and a
+# misparse degrades to the conservative current-branch check below.
+rest=$(printf '%s\n' "$scan" | sed -nE "s/.*${git_push_re}([[:space:]]|\$)//p" | head -1 | sed 's/[;&|].*//')
 
 remote=""
 refspecs=""

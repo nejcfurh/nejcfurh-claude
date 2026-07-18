@@ -65,6 +65,44 @@ run_case "force flag after separator not this push" 0 \
 run_case "non-push command ignored" 0 \
   'git status --force'
 
+run_case "bundled short flags -fu blocked" 2 \
+  'git push -fu origin feat/x'
+
+run_case "bundled short flags -uf blocked" 2 \
+  'git push -uf origin feat/x'
+
+run_case "plus-refspec force push blocked" 2 \
+  'git push origin +feat/x'
+
+run_case "plus-refspec with full ref blocked" 2 \
+  'git push origin +refs/heads/feat/x:refs/heads/feat/x'
+
+run_case "force flag on continuation line blocked" 2 \
+  'git push \
+  --force origin feat/x'
+
+run_case "short flag without f allowed" 0 \
+  'git push -u origin feat/x'
+
+run_case "normal colon refspec allowed" 0 \
+  'git push origin refs/heads/a:refs/heads/b'
+
+run_case "force-with-lease on continuation line allowed" 0 \
+  'git push --force-with-lease \
+  origin feat/x'
+
+run_case "plus sign inside commit message not a push arg" 0 \
+  'git commit -m "docs: notes on push +refspec"'
+
+# The exact false positive that blocked this fix's own release commit: gate
+# filenames put "push" before the real subcommand, and the commit message
+# mentions `git push` as data — the arg scan must anchor on the invocation.
+run_case "gate filenames plus git-push mention in message allowed" 0 \
+  'git add hooks/pre-push-force-gate.sh && git commit -m "docs: exempt the git push origin :dead form"'
+
+run_case "filename before real force push still blocked" 2 \
+  'git add hooks/pre-push-force-gate.sh && git push --force origin feat/x'
+
 # Bypass env var must allow anything through.
 jq -n --arg cmd 'git push --force' '{tool_input:{command:$cmd}}' \
   | SKIP_PUSH_FORCE_GATE=1 bash "$SUT" >/dev/null 2>&1
