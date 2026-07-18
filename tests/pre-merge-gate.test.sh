@@ -57,6 +57,18 @@ explain that gh pr merge is blocked"'
 run_case "real merge after quoted prose still blocked" 2 \
   'echo "gh pr merge is fine to mention" && gh pr merge 123'
 
+run_case "merge text in heredoc body allowed" 0 \
+  'cat > body.md << '"'"'EOF'"'"'
+the gate blocks gh pr merge and gh api pulls/5/merge
+EOF
+gh api -X PATCH repos/o/r/pulls/2 -F body=@body.md'
+
+run_case "real merge after heredoc still blocked" 2 \
+  'cat > body.md << EOF
+prose about merging
+EOF
+gh pr merge 123'
+
 # Bypass env var must allow anything through.
 jq -n --arg cmd 'gh pr merge 123' '{tool_input:{command:$cmd}}' \
   | SKIP_MERGE_GATE=1 bash "$SUT" >/dev/null 2>&1

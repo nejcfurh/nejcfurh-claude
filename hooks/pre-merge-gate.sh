@@ -15,10 +15,22 @@ payload=$(cat 2>/dev/null) || exit 0
 
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
 
-# Strip quoted spans before matching — 'gh pr merge' inside a PR body or
-# commit message is prose, not a merge. Newlines are collapsed first so
-# multi-line quoted arguments strip as one span.
-stripped=$(printf '%s' "$cmd" | tr '\n' ' ' | sed -e "s/'[^']*'//g" -e 's/"[^"]*"//g')
+# Strip heredoc bodies and quoted spans before matching — 'gh pr merge'
+# inside a PR body or commit message is prose, not a merge. Heredocs go
+# first (they are line-based); then newlines are collapsed so multi-line
+# quoted arguments strip as one span.
+stripped=$(printf '%s\n' "$cmd" | awk '
+  inhd { if ($0 == mark) inhd = 0; next }
+  match($0, /<<-?[[:space:]]*["'\'']?[A-Za-z_][A-Za-z_0-9]*/) {
+    mark = substr($0, RSTART, RLENGTH)
+    sub(/<<-?[[:space:]]*["'\'']?/, "", mark)
+    inhd = 1
+    print
+    next
+  }
+  { print }
+')
+stripped=$(printf '%s' "$stripped" | tr '\n' ' ' | sed -e "s/'[^']*'//g" -e 's/"[^"]*"//g')
 
 if ! printf '%s\n' "$stripped" | grep -Eq "gh[[:space:]]+pr[[:space:]]+merge([[:space:]]|\$)"; then
   printf '%s\n' "$stripped" | grep -Eq "gh[[:space:]]+api[[:space:]][^;|&]*pulls/[^[:space:]/]+/merge" || exit 0
