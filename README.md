@@ -4,8 +4,18 @@ Personal **global** Claude Code configuration — rules, skills, agents, hooks, 
 
 ## Install
 
+On a fresh machine, install Claude Code itself via the native installer (NOT `npm install -g` — an npm install lives inside whichever node version is active and breaks when nvm switches):
+
 ```bash
-git clone <this-repo> && cd nejcfurh-claude
+curl -fsSL https://claude.ai/install.sh | bash
+# ensure ~/.local/bin precedes nvm in PATH (in ~/.zshrc, before the nvm loader):
+# export PATH="$HOME/.local/bin:$PATH"
+```
+
+Then this config:
+
+```bash
+git clone git@github.com:nejcfurh/nejcfurh-claude.git && cd nejcfurh-claude
 bash scripts/setup.sh --check   # dry-run
 bash scripts/setup.sh           # symlink into ~/.claude + install refactoring-ui plugin
 ```
