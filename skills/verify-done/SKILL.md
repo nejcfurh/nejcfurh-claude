@@ -41,3 +41,5 @@ The pre-push-verify-gate hook blocks pushes without a fresh READY marker — rec
 - **NOT READY** → `rm -f "$(git rev-parse --git-dir)/verify-done-ok"`
 
 Do not write the marker on a NOT READY verdict for any reason — the marker IS the READY verdict. Any Write/Edit after recording invalidates the marker automatically; re-run this command after further changes.
+
+Record the marker as its **own** Bash command, then push separately — PreToolUse gates run before a command executes, so a marker written in the same command as the push does not exist yet when the gate checks for it.

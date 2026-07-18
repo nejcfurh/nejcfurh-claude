@@ -5,6 +5,7 @@
 ## Commits
 
 - Conventional commits format (`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `test:`, `ci:`). Scope optional: `feat(auth): add token refresh`. (Enforced by hook.)
+- Immediately before committing, review `git diff --cached --stat` — the index may hold earlier staged changes (a stray `git rm`, a forgotten `add`) that would ride along. Commit exactly what the message describes.
 - **Never add Co-Authored-By or any AI attribution** — commits, PR titles/descriptions, issues, comments. This includes the "Generated with Claude Code" footer harnesses append by default. (Enforced by hook.)
 - Never commit directly to `main`/`master` — verify the branch first, use a feature branch. (Enforced by hook.)
 - Never auto-commit or push — wait for explicit instructions.
@@ -33,3 +34,4 @@ State from earlier in the conversation goes stale — and so do local clones.
 ## Tooling
 
 - Use the `gh` CLI for all GitHub operations (PRs, issues, checks, releases).
+- Multi-line PR/issue bodies: write them to a scratch file and pass `--body-file` — inline `--body` strings full of backticks and quotes get mangled or denied by the permission layer.
