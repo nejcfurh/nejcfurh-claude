@@ -69,6 +69,20 @@ run_case "cd feature repo allowed from main cwd" 0 "$main_repo" \
 run_case "cd main repo blocked from feature cwd" 2 "$feat_repo" \
   "cd $main_repo && git commit -m \"feat: x\""
 
+# Compound commands that switch branches BEFORE committing must be judged by
+# the branch the commit will actually land on, not the pre-execution branch.
+run_case "checkout -b then commit allowed from main cwd" 0 "$main_repo" \
+  'git checkout -b feat/new-thing && git commit -m "feat: x"'
+
+run_case "switch -c then commit allowed from main cwd" 0 "$main_repo" \
+  'git switch -c feat/new-thing && git commit -m "feat: x"'
+
+run_case "checkout main then commit blocked from feature cwd" 2 "$feat_repo" \
+  'git checkout main && git commit -m "feat: x"'
+
+run_case "checkout -b main then commit still blocked" 2 "$feat_repo" \
+  'git checkout -b main && git commit -m "feat: x"'
+
 # Bypass env var must allow anything through.
 jq -n --arg cmd 'git commit -m "x"' '{tool_input:{command:$cmd}}' \
   | (cd "$main_repo" && SKIP_COMMIT_BRANCH_GATE=1 bash "$SUT") >/dev/null 2>&1

@@ -47,12 +47,25 @@ done
 [ -n "$repo" ] || exit 0
 
 branch=$(git -C "$repo" branch --show-current 2>/dev/null)
+
+# The hook runs BEFORE the command: a compound like `git checkout -b x && git
+# commit …` will not be on branch x yet. Predict the branch at commit time by
+# taking the LAST checkout/switch in the command portion before the commit.
+pre_commit_part="${cmd%%commit*}"
+switched=$(printf '%s\n' "$pre_commit_part" \
+  | grep -oE "git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?(checkout[[:space:]]+-b|switch[[:space:]]+-c|checkout|switch)[[:space:]]+[^[:space:]&;|\"']+" \
+  | tail -1 | awk '{print $NF}')
+case "$switched" in
+  -*|.|"") : ;;                      # flags, `checkout .`, nothing found — keep cwd branch
+  *) branch="$switched" ;;
+esac
+
 case "$branch" in
   main|master)
     {
       echo "Blocked: commits directly to '$branch' are not allowed."
       echo "Create a feature branch first: git checkout -b <type>/<topic>"
-      echo "Bypass: set SKIP_COMMIT_BRANCH_GATE=1"
+      echo "Bypass (human-only): '!'-prefix the command, or export SKIP_COMMIT_BRANCH_GATE=1 in your shell."
     } >&2
     exit 2
     ;;
