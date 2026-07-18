@@ -27,3 +27,12 @@ End with one of:
 - **NOT READY** — name exactly what's blocking: the failed check, or unexplained uncommitted/untracked files.
 
 Be honest. "Tests pass except one flaky one" is NOT READY.
+
+## 5. Record the verdict
+
+The pre-push-verify-gate hook blocks pushes without a fresh READY marker — record the verdict so the gate reflects reality:
+
+- **READY** → `date > "$(git rev-parse --git-dir)/verify-done-ok"`
+- **NOT READY** → `rm -f "$(git rev-parse --git-dir)/verify-done-ok"`
+
+Do not write the marker on a NOT READY verdict for any reason — the marker IS the READY verdict. Any Write/Edit after recording invalidates the marker automatically; re-run this command after further changes.
