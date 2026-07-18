@@ -56,7 +56,7 @@ track() { # track <branch> — expose a branch as origin/<branch>
 # ---------------------------------------------------------------------------
 repo=$(mktemp -d); stub=$(mktemp -d)
 (
-  cd "$repo"
+  cd "$repo" || exit 1
   git init -q -b main
   commit A
   git checkout -q -b feature
@@ -73,7 +73,7 @@ run_case "feature off main resolves to main" main
 # ---------------------------------------------------------------------------
 repo=$(mktemp -d); stub=$(mktemp -d)
 (
-  cd "$repo"
+  cd "$repo" || exit 1
   git init -q -b main
   commit A
   git checkout -q -b feature1
@@ -92,7 +92,7 @@ run_case "stacked branch resolves to its PR parent" feature1
 # ---------------------------------------------------------------------------
 repo=$(mktemp -d); stub=$(mktemp -d)
 (
-  cd "$repo"
+  cd "$repo" || exit 1
   git init -q -b main
   commit ROOT
   git checkout -q -b stale
@@ -114,7 +114,7 @@ run_case "stale sibling loses to main" main
 # ---------------------------------------------------------------------------
 repo=$(mktemp -d); stub=$(mktemp -d)
 (
-  cd "$repo"
+  cd "$repo" || exit 1
   git init -q -b main
   commit A
   git checkout -q -b feature
@@ -134,7 +134,7 @@ run_case "integration branch rejected by first-parent filter" main
 # ---------------------------------------------------------------------------
 repo=$(mktemp -d); stub=$(mktemp -d)
 (
-  cd "$repo"
+  cd "$repo" || exit 1
   git init -q -b main
   commit A
   git checkout -q -b p1
@@ -156,7 +156,7 @@ run_case "ambiguous PR tie falls back to main" main
 # ---------------------------------------------------------------------------
 repo=$(mktemp -d); stub=$(mktemp -d)
 (
-  cd "$repo"
+  cd "$repo" || exit 1
   git init -q -b main
   commit A
   track main
@@ -169,7 +169,7 @@ run_case "on main resolves to main" main
 # ---------------------------------------------------------------------------
 repo=$(mktemp -d); stub=$(mktemp -d)
 (
-  cd "$repo"
+  cd "$repo" || exit 1
   git init -q -b trunk
   commit A
   git checkout -q -b feature

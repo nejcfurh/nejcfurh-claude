@@ -22,7 +22,7 @@ make_repo() { # make_repo <default-branch> <checked-out-branch> -> prints repo p
   local default="$1" current="$2" r
   r=$(mktemp -d)
   (
-    cd "$r"
+    cd "$r" || exit 1
     git init -q -b "$default"
     git commit -q --allow-empty -m init
     git update-ref "refs/remotes/origin/$default" "refs/heads/$default"

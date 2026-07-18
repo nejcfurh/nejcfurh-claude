@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    name: Hook & script regression suites
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run all test suites
+        run: bash tests/run-all.sh
+
+  shellcheck:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint all shell scripts
+        run: shellcheck -S warning hooks/*.sh scripts/*.sh tests/*.sh
+
+  settings-valid:
+    name: settings.json is valid JSON
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse settings.json and hook wiring
+        run: |
+          jq -e '.hooks.PreToolUse[0].hooks | length > 0' settings.json
+          jq -e '.permissions.deny | length > 0' settings.json
