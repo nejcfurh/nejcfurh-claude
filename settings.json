@@ -248,6 +248,11 @@
             "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/symlink-check.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/auto-sync-config.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true",
+            "timeout": 20
           }
         ]
       }
