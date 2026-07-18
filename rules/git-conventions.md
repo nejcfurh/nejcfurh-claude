@@ -8,6 +8,7 @@
 - **Never add Co-Authored-By or any AI attribution** — commits, PR titles/descriptions, issues, comments. This includes the "Generated with Claude Code" footer harnesses append by default. (Enforced by hook.)
 - Never commit directly to `main`/`master` — verify the branch first, use a feature branch. (Enforced by hook.)
 - Never auto-commit or push — wait for explicit instructions.
+- **Never route around a gate.** When a hook blocks a git operation, do not re-issue it through wrapper scripts, alternate command forms, or anything else that hides the operation from the gates. Fix the trigger instead (feature branch, ff-merge) or hand the exact command to the user to run with the `!` prefix.
 
 ## Branches and PRs
 
@@ -21,9 +22,12 @@
 - After pushing new commits to an existing PR, update its title and description (`gh pr edit`) to reflect all changes.
 - If the repo has a PR template, use it.
 
-## PR state freshness
+## State freshness
 
-State from earlier in the conversation goes stale. Before asserting PR state (open/merged/checks-passing), run `gh pr view --json state,mergedAt,statusCheckRollup` and answer from that output, not memory. The pre-git-state-refresh hook injects a `[pr-state]` line before git/gh writes — read it; if it reports MERGED or CLOSED, pause and confirm intent.
+State from earlier in the conversation goes stale — and so do local clones.
+
+- **Repos:** before analyzing, comparing, or building on any repo — including at the start of a task and after any conversation gap — run `git fetch` and `git status -sb` first. A stale clone produces conclusions upstream has already invalidated; analysis done on it is wasted.
+- **PRs:** before asserting PR state (open/merged/checks-passing), run `gh pr view --json state,mergedAt,statusCheckRollup` and answer from that output, not memory. The pre-git-state-refresh hook injects a `[pr-state]` line before git/gh writes — read it; if it reports MERGED or CLOSED, pause and confirm intent.
 
 ## Tooling
 
