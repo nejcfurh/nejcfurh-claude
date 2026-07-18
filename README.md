@@ -28,7 +28,7 @@ Everything is symlinked, so edits in `~/.claude` and in the repo are the same fi
 | --- | --- |
 | `CLAUDE.md` | Core global rules: priority order, workflow, behavioral rules, security, environment |
 | `rules/` | Auto-loaded conventions: communication, comments, git, typescript, tests, engineering principles, context7 |
-| `skills/` | Workflow: `grill`, `build`, `ship`, `debug`, `test`, `prune`, `spec`, `review-pr`, `commit`, `pr`, `rebase`, `handoff`, `verify-frontend-change`, `retro` · Docs: `context7-mcp`, `find-docs`, `review-code` · Design (Emil Kowalski): `emil-design-eng`, `apple-design`, `animation-vocabulary`, `find-animation-opportunities`, `improve-animations`, `review-animations` |
+| `skills/` | Workflow: `grill`, `build`, `ship`, `debug`, `test`, `prune`, `spec`, `review-pr`, `address-pr-comment`, `commit`, `pr`, `rebase`, `handoff`, `verify-frontend-change`, `retro` · Docs: `context7-mcp`, `find-docs`, `review-code` · Design (Emil Kowalski): `emil-design-eng`, `apple-design`, `animation-vocabulary`, `find-animation-opportunities`, `improve-animations`, `review-animations` |
 | `commands/` | `/verify-done` — discover what CI runs and run exactly that |
 | `agents/` | Opt-in subagent personas — see [Personas](#personas) |
 | `hooks/` | Full quality gates (see below) |
