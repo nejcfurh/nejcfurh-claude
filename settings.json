@@ -161,6 +161,24 @@
           },
           {
             "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/pre-push-force-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
+            "if": "Bash(git *)",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/pre-push-verify-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
+            "if": "Bash(git *)",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/pre-merge-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
+            "if": "Bash(gh *)",
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/pre-push-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
             "if": "Bash(git *)",
             "timeout": 300
@@ -182,6 +200,12 @@
             "command": "HOOK=\"$HOME/.claude/hooks/pre-commit-conventional-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
             "if": "Bash(git *)",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/pre-commit-secret-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
+            "if": "Bash(git *)",
+            "timeout": 60
           }
         ]
       }
@@ -199,6 +223,11 @@
             "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/post-edit-typecheck.sh\"; if [ -x \"$HOOK\" ]; then \"$HOOK\"; fi",
             "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/invalidate-verify-marker.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true",
+            "timeout": 5
           }
         ]
       }
@@ -226,6 +255,11 @@
           {
             "type": "command",
             "command": "\"$HOME/.claude/scripts/chime.sh\" 2",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/retro-nudge.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true",
             "timeout": 5
           }
         ]
