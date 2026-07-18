@@ -85,7 +85,7 @@ Domain-expert subagents, spawned via the Agent tool for substantial work in thei
 | `pre-push-gate.sh` | git push | lint + typecheck + test + build |
 | `symlink-check.sh` | session start | warns on symlink drift |
 
-All hooks detect the package manager from the lockfile (bun/pnpm/yarn/npm) and have `SKIP_*` env bypasses for emergencies. The commit gates match both `git commit` and cross-repo forms (`git -C <path> commit`, `cd <path> && git commit`) and gate on the branch of the repo the commit actually targets. Every gate has a regression suite in `tests/` (`bash tests/run-all.sh`).
+All hooks detect the package manager from the lockfile (bun/pnpm/yarn/npm) and have `SKIP_*` env bypasses for emergencies. The bypasses are **deliberately human-only**: hooks run in the harness process, so an inline `SKIP_*=1` prefix on the agent's command never reaches them — export the variable in the shell that launches the session, or run the command yourself with the `!` prefix. The agent cannot bypass its own gates. The commit gates match both `git commit` and cross-repo forms (`git -C <path> commit`, `cd <path> && git commit`) and gate on the branch of the repo the commit actually targets. Every gate has a regression suite in `tests/` (`bash tests/run-all.sh`).
 
 ## Licensing
 

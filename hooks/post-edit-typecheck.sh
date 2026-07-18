@@ -67,7 +67,7 @@ if [ $? -ne 0 ]; then
     printf '%s\n' "$out" | tail -n 40
     echo ""
     echo "Fix the type errors above before continuing."
-    echo "Bypass: set SKIP_POST_EDIT_TYPECHECK=1"
+    echo "Bypass (human-only): export SKIP_POST_EDIT_TYPECHECK=1 in the shell that launches the session."
   } >&2
   exit 2
 fi
@@ -85,7 +85,7 @@ elif has_script lint; then
       printf '%s\n' "$out" | tail -n 40
       echo ""
       echo "Fix the lint errors above before continuing."
-      echo "Bypass: set SKIP_POST_EDIT_TYPECHECK=1"
+      echo "Bypass (human-only): export SKIP_POST_EDIT_TYPECHECK=1 in the shell that launches the session."
     } >&2
     exit 2
   fi

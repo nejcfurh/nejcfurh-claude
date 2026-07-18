@@ -108,7 +108,7 @@ for t in $targets; do
     {
       echo "Blocked: this push targets '$default' — the repo's default branch."
       echo "Push a feature branch and open a PR instead."
-      echo "Bypass: set SKIP_PUSH_BRANCH_GATE=1"
+      echo "Bypass (human-only): '!'-prefix the command, or export SKIP_PUSH_BRANCH_GATE=1 in your shell."
     } >&2
     exit 2
   fi

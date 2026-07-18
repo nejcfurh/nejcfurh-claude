@@ -27,7 +27,7 @@ case "$lower" in
       echo "Blocked: AI attribution is not allowed in this user's commits."
       echo "Rewrite the commit message without the 'Co-Authored-By' /"
       echo "'Generated with Claude' attribution footer and commit again."
-      echo "Bypass: set SKIP_COAUTHOR_GATE=1"
+      echo "Bypass (human-only): '!'-prefix the command, or export SKIP_COAUTHOR_GATE=1 in your shell."
     } >&2
     exit 2
     ;;

@@ -75,6 +75,6 @@ fi
   echo "  Types:    feat fix refactor perf docs style test build ci chore deps security revert"
   echo "  Example:  feat(auth): add passwordless login"
   echo ""
-  echo "Bypass: set SKIP_CONVENTIONAL_GATE=1"
+  echo "Bypass (human-only): '!'-prefix the command, or export SKIP_CONVENTIONAL_GATE=1 in your shell."
 } >&2
 exit 2

@@ -58,7 +58,7 @@ for step in lint typecheck test build; do
       printf '%s\n' "$out" | tail -n 40
       echo ""
       echo "Fix the failures above before pushing."
-      echo "Bypass: set SKIP_PUSH_GATE=1"
+      echo "Bypass (human-only): '!'-prefix the command, or export SKIP_PUSH_GATE=1 in your shell."
     } >&2
     exit 2
   fi

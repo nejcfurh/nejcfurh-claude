@@ -64,7 +64,7 @@ if [ $? -ne 0 ]; then
     printf '%s\n' "$out" | tail -n 40
     echo ""
     echo "Fix the failing tests, then create the PR again."
-    echo "Bypass: set SKIP_PR_TEST_GATE=1"
+    echo "Bypass (human-only): '!'-prefix the command, or export SKIP_PR_TEST_GATE=1 in your shell."
   } >&2
   exit 2
 fi
