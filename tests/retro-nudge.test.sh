@@ -6,6 +6,9 @@
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# A failed mktemp must never leak this suite's git commands into the real repo.
+cd "$(mktemp -d "${TMPDIR:-/tmp}/hooktest-cwd.XXXXXX")" || exit 1
 RECORD="$SCRIPT_DIR/../hooks/record-gate-block.sh"
 NUDGE="$SCRIPT_DIR/../hooks/retro-nudge.sh"
 

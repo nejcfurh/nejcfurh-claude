@@ -85,11 +85,14 @@ Domain-expert subagents, spawned via the Agent tool for substantial work in thei
 | `pre-merge-gate.sh` | gh | blocks `gh pr merge` (and the `gh api …/merge` fallback) — the user merges PRs manually |
 | `pre-pr-test-gate.sh` | gh pr create | tests must pass |
 | `pre-push-branch-gate.sh` | git push | blocks pushes targeting the repo's default branch, whatever its name — bare `git push`, `HEAD`, refspecs, `--all`, `--delete` |
+| `pre-push-author-gate.sh` | git push | blocks pushes whose outgoing commits carry a foreign author — fixture commits and tooling artifacts never ride along unnoticed |
 | `pre-push-force-gate.sh` | git push | blocks bare `--force`/`-f` in any command form; `--force-with-lease` stays allowed |
 | `pre-push-verify-gate.sh` | git push | requires a fresh `/verify-done` READY marker (`.git/verify-done-ok`); edits invalidate it, TTL backstop expires it |
 | `pre-push-gate.sh` | git push | lint + typecheck + test + build |
 | `retro-nudge.sh` | session stop | after ≥3 gate blocks in a session, suggests `/retro` once so the friction gets encoded, not repeated |
 | `symlink-check.sh` | session start | warns on symlink drift |
+
+Hook-authoring rule: command-matching gates need negative tests where the trigger text appears as *data* — quoted arguments, heredoc bodies, prose — not just as a command. The merge gate shipped with two such false positives (it blocked its own release PR twice) before this was encoded.
 
 All hooks detect the package manager from the lockfile (bun/pnpm/yarn/npm) and have `SKIP_*` env bypasses for emergencies. The bypasses are **deliberately human-only**: hooks run in the harness process, so an inline `SKIP_*=1` prefix on the agent's command never reaches them — export the variable in the shell that launches the session, or run the command yourself with the `!` prefix. The agent cannot bypass its own gates. The commit gates match both `git commit` and cross-repo forms (`git -C <path> commit`, `cd <path> && git commit`) and gate on the branch of the repo the commit actually targets. Every gate has a regression suite in `tests/` (`bash tests/run-all.sh`).
 

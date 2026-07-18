@@ -173,6 +173,12 @@
           },
           {
             "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/pre-push-author-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
+            "if": "Bash(git *)",
+            "timeout": 15
+          },
+          {
+            "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/pre-merge-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
             "if": "Bash(gh *)",
             "timeout": 10
