@@ -7,6 +7,9 @@
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# A failed mktemp must never leak this suite's git commands into the real repo.
+cd "$(mktemp -d "${TMPDIR:-/tmp}/hooktest-cwd.XXXXXX")" || exit 1
 SUT="$SCRIPT_DIR/../hooks/auto-format.sh"
 
 pass=0
