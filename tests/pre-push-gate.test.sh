@@ -28,17 +28,17 @@ run_case() { # run_case <name> <expected-exit> <cwd> <command-string>
 }
 
 # Fixture: package whose lint fails.
-bad=$(mktemp -d)
+bad=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 printf '{"name":"bad","scripts":{"lint":"exit 1","test":"exit 0"}}' > "$bad/package.json"
 touch "$bad/package-lock.json"
 
 # Fixture: package whose scripts all pass.
-good=$(mktemp -d)
+good=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 printf '{"name":"good","scripts":{"lint":"exit 0","typecheck":"exit 0","test":"exit 0","build":"exit 0"}}' > "$good/package.json"
 touch "$good/package-lock.json"
 
 # Fixture: no package.json at all.
-empty=$(mktemp -d)
+empty=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 
 run_case "push blocked when lint fails" 2 "$bad" 'git push origin feat/x'
 run_case "push allowed when all scripts pass" 0 "$good" 'git push origin feat/x'

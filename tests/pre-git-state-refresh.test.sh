@@ -53,14 +53,14 @@ out=$(payload 'cat README.md' | bash "$SUT" 2>/dev/null)
 check "read command stays silent" EMPTY "$out"
 
 # git push outside any repo -> not-a-repo marker.
-nowhere=$(mktemp -d)
+nowhere=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 out=$(payload 'git push' | (cd "$nowhere" && bash "$SUT") 2>/dev/null)
 check "push outside a repo reports not-a-repo" "unavailable=not-a-repo" "$out"
 rm -rf "$nowhere"
 
 # git commit in a repo, with a stubbed gh that always fails -> no-open-pr.
-repo=$(mktemp -d)
-stub=$(mktemp -d)
+repo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+stub=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 printf '#!/bin/bash\nexit 1\n' > "$stub/gh"
 chmod +x "$stub/gh"
 (cd "$repo" && git init -q -b feat/x && git commit -q --allow-empty -m init)

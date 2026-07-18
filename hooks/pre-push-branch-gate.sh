@@ -105,6 +105,7 @@ fi
 for t in $targets; do
   [ -n "$t" ] || continue
   if [ "$t" = "$default" ]; then
+    "$(dirname "$0")/record-gate-block.sh" "pre-push-branch-gate" "$payload" 2>/dev/null || true
     {
       echo "Blocked: this push targets '$default' — the repo's default branch."
       echo "Push a feature branch and open a PR instead."

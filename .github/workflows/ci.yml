@@ -7,8 +7,13 @@ on:
 
 jobs:
   tests:
-    name: Hook & script regression suites
-    runs-on: ubuntu-latest
+    name: Hook & script regression suites (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS catches BSD sed/grep/mktemp divergence — the hooks' real runtime.
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - name: Run all test suites
@@ -21,6 +26,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Lint all shell scripts
         run: shellcheck -S warning hooks/*.sh scripts/*.sh tests/*.sh
+
+  config-lint:
+    name: Config lint (wiring, frontmatter, references)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint config repo
+        run: bash scripts/lint-config.sh
 
   settings-valid:
     name: settings.json is valid JSON

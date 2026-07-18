@@ -25,15 +25,15 @@ run_case() { # run_case <name> <expected-exit> <cwd> <command-string>
   fi
 }
 
-failing=$(mktemp -d)
+failing=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 printf '{"name":"failing","scripts":{"test":"exit 1"}}' > "$failing/package.json"
 touch "$failing/package-lock.json"
 
-passing=$(mktemp -d)
+passing=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 printf '{"name":"passing","scripts":{"test":"exit 0"}}' > "$passing/package.json"
 touch "$passing/package-lock.json"
 
-placeholder=$(mktemp -d)
+placeholder=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 printf '{"name":"placeholder","scripts":{"test":"echo \\"Error: no test specified\\" && exit 1"}}' > "$placeholder/package.json"
 
 run_case "PR blocked when tests fail" 2 "$failing" 'gh pr create --fill'
