@@ -67,6 +67,7 @@ if printf '%s\n' "$subject" \
   exit 0
 fi
 
+"$(dirname "$0")/record-gate-block.sh" "pre-commit-conventional-gate" "$payload" 2>/dev/null || true
 {
   echo "Blocked: commit subject does not follow Conventional Commits."
   echo ""

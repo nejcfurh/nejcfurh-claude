@@ -57,6 +57,7 @@ done
 
 out=$(cd "$pkg_dir" && CI=true $pm run test 2>&1)
 if [ $? -ne 0 ]; then
+  "$(dirname "$0")/record-gate-block.sh" "pre-pr-test-gate" "$payload" 2>/dev/null || true
   {
     echo "Blocked: tests must pass before opening a PR."
     echo "Command: CI=true $pm run test (run in $pkg_dir)"

@@ -62,6 +62,7 @@ esac
 
 case "$branch" in
   main|master)
+    "$(dirname "$0")/record-gate-block.sh" "pre-commit-branch-gate" "$payload" 2>/dev/null || true
     {
       echo "Blocked: commits directly to '$branch' are not allowed."
       echo "Create a feature branch first: git checkout -b <type>/<topic>"

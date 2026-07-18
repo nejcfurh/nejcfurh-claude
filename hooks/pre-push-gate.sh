@@ -51,6 +51,7 @@ for step in lint typecheck test build; do
   jq -e --arg n "$step" '.scripts[$n]' "$pkg_dir/package.json" >/dev/null 2>&1 || continue
   out=$(cd "$pkg_dir" && CI=true $pm run "$step" 2>&1)
   if [ $? -ne 0 ]; then
+    "$(dirname "$0")/record-gate-block.sh" "pre-push-gate" "$payload" 2>/dev/null || true
     {
       echo "Push blocked: '$step' failed."
       echo "Command: CI=true $pm run $step (run in $pkg_dir)"

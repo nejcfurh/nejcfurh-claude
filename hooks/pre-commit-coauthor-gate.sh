@@ -23,6 +23,7 @@ fi
 lower=$(printf '%s' "$cmd" | tr '[:upper:]' '[:lower:]')
 case "$lower" in
   *"co-authored-by"*|*"generated with claude"*)
+    "$(dirname "$0")/record-gate-block.sh" "pre-commit-coauthor-gate" "$payload" 2>/dev/null || true
     {
       echo "Blocked: AI attribution is not allowed in this user's commits."
       echo "Rewrite the commit message without the 'Co-Authored-By' /"
