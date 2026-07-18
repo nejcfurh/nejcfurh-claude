@@ -12,12 +12,12 @@
 
 ## Branches and PRs
 
-- Never push to the default branch — feature branch + PR, always.
-- Never force-push without asking immediately before the push — plan approval is not push approval. One exception: `/rebase` may push the current feature branch with `--force-with-lease` after a **conflict-free** rebase; pushes after manual conflict resolution still require confirmation. Never bare `--force`, never a protected branch.
+- Never push to the default branch — feature branch + PR, always. (Enforced by hook.)
+- Never force-push without asking immediately before the push — plan approval is not push approval. One exception: `/rebase` may push the current feature branch with `--force-with-lease` after a **conflict-free** rebase; pushes after manual conflict resolution still require confirmation. Never bare `--force` (enforced by hook), never a protected branch.
 - To undo commits, use `git reset --soft` (keeps changes staged). Never `git reset --hard` — it destroys work and is deny-blocked; if a hard discard is truly needed, ask the user to run it themselves.
-- Never merge PRs — the user merges manually.
+- Never merge PRs — the user merges manually. (Enforced by hook.)
 - Rebase onto the target branch (`git fetch origin main && git rebase origin/main`) before creating a PR.
-- Run `/verify-done` before pushing any branch.
+- Run `/verify-done` before pushing any branch. (Enforced by hook — a READY verdict records a marker that pushes require; any edit invalidates it.)
 - PR descriptions: bullet points in the summary, not prose paragraphs.
 - After pushing new commits to an existing PR, update its title and description (`gh pr edit`) to reflect all changes.
 - If the repo has a PR template, use it.
