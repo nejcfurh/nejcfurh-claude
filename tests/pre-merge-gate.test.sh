@@ -46,6 +46,17 @@ run_case "gh api pulls read allowed" 0 \
 run_case "unrelated merge word allowed" 0 \
   'git merge --no-ff feat/x'
 
+run_case "merge text quoted in PR body allowed" 0 \
+  'gh pr create --title "feat: x" --body "the gate blocks gh pr merge and gh api pulls/5/merge"'
+
+run_case "merge text in multi-line commit body allowed" 0 \
+  'git commit -m "docs: x
+
+explain that gh pr merge is blocked"'
+
+run_case "real merge after quoted prose still blocked" 2 \
+  'echo "gh pr merge is fine to mention" && gh pr merge 123'
+
 # Bypass env var must allow anything through.
 jq -n --arg cmd 'gh pr merge 123' '{tool_input:{command:$cmd}}' \
   | SKIP_MERGE_GATE=1 bash "$SUT" >/dev/null 2>&1

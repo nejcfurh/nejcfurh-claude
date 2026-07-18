@@ -15,8 +15,13 @@ payload=$(cat 2>/dev/null) || exit 0
 
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
 
-if ! printf '%s\n' "$cmd" | grep -Eq "gh[[:space:]]+pr[[:space:]]+merge([[:space:]]|\$)"; then
-  printf '%s\n' "$cmd" | grep -Eq "gh[[:space:]]+api[[:space:]][^;|&]*pulls/[^[:space:]/]+/merge" || exit 0
+# Strip quoted spans before matching — 'gh pr merge' inside a PR body or
+# commit message is prose, not a merge. Newlines are collapsed first so
+# multi-line quoted arguments strip as one span.
+stripped=$(printf '%s' "$cmd" | tr '\n' ' ' | sed -e "s/'[^']*'//g" -e 's/"[^"]*"//g')
+
+if ! printf '%s\n' "$stripped" | grep -Eq "gh[[:space:]]+pr[[:space:]]+merge([[:space:]]|\$)"; then
+  printf '%s\n' "$stripped" | grep -Eq "gh[[:space:]]+api[[:space:]][^;|&]*pulls/[^[:space:]/]+/merge" || exit 0
 fi
 
 "$(dirname "$0")/record-gate-block.sh" "pre-merge-gate" "$payload" 2>/dev/null || true
