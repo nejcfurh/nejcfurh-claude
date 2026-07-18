@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Claude Code status line renderer.
 # Reads the statusline JSON payload on stdin and prints one colored line:
-#   <cyan dir basename> │ <git branch[*]> │ <dim model name>
-# The git segment is omitted outside a repo. Degrades to nothing without jq.
+#   <cyan dir basename> │ <git branch[*]> │ <dim model name> │ <dim config greeting>
+# The git segment is omitted outside a repo; the greeting only appears when the
+# global config's hooks dir is installed. Degrades to nothing without jq.
 
 set -u
 
@@ -44,6 +45,11 @@ fi
 
 if [ -n "$model" ]; then
   seg="${DIM}${model}${RESET}"
+  [ -n "$line" ] && line="${line}${SEP}${seg}" || line="$seg"
+fi
+
+if [ -d "$HOME/.claude/hooks" ]; then
+  seg="${DIM}👋 Nejc's personal hooks, skills and gates active ✓${RESET}"
   [ -n "$line" ] && line="${line}${SEP}${seg}" || line="$seg"
 fi
 
