@@ -19,7 +19,7 @@ unset CLAUDE_PROJECT_DIR
 
 make_repo() { # make_repo <branch> -> prints repo path
   local r
-  r=$(mktemp -d)
+  r=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
   (cd "$r" && git init -q -b "$1" && git commit -q --allow-empty -m init)
   printf '%s\n' "$r"
 }

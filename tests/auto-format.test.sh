@@ -25,7 +25,7 @@ run_case() { # run_case <name> <file-path>
   fi
 }
 
-work=$(mktemp -d)
+work=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 mkdir -p "$work/node_modules/pkg" "$work/src"
 
 badly_formatted='const   x   =   1'

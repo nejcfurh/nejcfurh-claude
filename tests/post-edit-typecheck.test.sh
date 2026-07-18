@@ -23,14 +23,14 @@ run_case() { # run_case <name> <expected-exit> <file-path>
 }
 
 # Fixture: package whose typecheck script fails.
-bad=$(mktemp -d)
+bad=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 mkdir -p "$bad/src"
 printf '{"name":"bad","scripts":{"typecheck":"exit 1"}}' > "$bad/package.json"
 touch "$bad/package-lock.json"
 touch "$bad/src/a.ts"
 
 # Fixture: package whose typecheck script passes (no lint script).
-good=$(mktemp -d)
+good=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 mkdir -p "$good/src"
 printf '{"name":"good","scripts":{"typecheck":"exit 0"}}' > "$good/package.json"
 touch "$good/package-lock.json"

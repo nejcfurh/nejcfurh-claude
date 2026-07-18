@@ -54,7 +54,7 @@ track() { # track <branch> — expose a branch as origin/<branch>
 # ---------------------------------------------------------------------------
 # Case 1: plain feature branch off main, no open PRs -> main.
 # ---------------------------------------------------------------------------
-repo=$(mktemp -d); stub=$(mktemp -d)
+repo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX"); stub=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 (
   cd "$repo" || exit 1
   git init -q -b main
@@ -71,7 +71,7 @@ run_case "feature off main resolves to main" main
 # Case 2: stacked branch — feature2 forked from feature1 (open PR). The
 # closest ancestor must win over the default branch.
 # ---------------------------------------------------------------------------
-repo=$(mktemp -d); stub=$(mktemp -d)
+repo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX"); stub=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 (
   cd "$repo" || exit 1
   git init -q -b main
@@ -90,7 +90,7 @@ run_case "stacked branch resolves to its PR parent" feature1
 # Case 3: stale sibling branch that forked from an older commit shares only
 # an old ancestor — the default branch must win.
 # ---------------------------------------------------------------------------
-repo=$(mktemp -d); stub=$(mktemp -d)
+repo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX"); stub=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 (
   cd "$repo" || exit 1
   git init -q -b main
@@ -112,7 +112,7 @@ run_case "stale sibling loses to main" main
 # Case 4: an integration branch that MERGED an ancestor of HEAD is not a true
 # base — the first-parent filter must reject it even though it is "closer".
 # ---------------------------------------------------------------------------
-repo=$(mktemp -d); stub=$(mktemp -d)
+repo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX"); stub=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 (
   cd "$repo" || exit 1
   git init -q -b main
@@ -132,7 +132,7 @@ run_case "integration branch rejected by first-parent filter" main
 # ---------------------------------------------------------------------------
 # Case 5: two PR branches equally close — ambiguous, must fall back to main.
 # ---------------------------------------------------------------------------
-repo=$(mktemp -d); stub=$(mktemp -d)
+repo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX"); stub=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 (
   cd "$repo" || exit 1
   git init -q -b main
@@ -154,7 +154,7 @@ run_case "ambiguous PR tie falls back to main" main
 # ---------------------------------------------------------------------------
 # Case 6: already on the default branch -> the default branch.
 # ---------------------------------------------------------------------------
-repo=$(mktemp -d); stub=$(mktemp -d)
+repo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX"); stub=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 (
   cd "$repo" || exit 1
   git init -q -b main
@@ -167,7 +167,7 @@ run_case "on main resolves to main" main
 # ---------------------------------------------------------------------------
 # Case 7: gh unavailable — falls back to origin/HEAD for the default branch.
 # ---------------------------------------------------------------------------
-repo=$(mktemp -d); stub=$(mktemp -d)
+repo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX"); stub=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 (
   cd "$repo" || exit 1
   git init -q -b trunk

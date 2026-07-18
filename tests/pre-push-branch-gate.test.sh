@@ -20,7 +20,7 @@ unset CLAUDE_PROJECT_DIR
 
 make_repo() { # make_repo <default-branch> <checked-out-branch> -> prints repo path
   local default="$1" current="$2" r
-  r=$(mktemp -d)
+  r=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
   (
     cd "$r" || exit 1
     git init -q -b "$default"
