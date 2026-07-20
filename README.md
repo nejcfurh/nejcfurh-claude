@@ -22,7 +22,7 @@ bash scripts/setup.sh           # symlink into ~/.claude + install refactoring-u
 
 Everything is symlinked, so edits in `~/.claude` and in the repo are the same files — commit when it stabilizes. Existing files are backed up to `<path>.bak.<timestamp>`. Machine-local overrides (env vars, experiments) go in `~/.claude/settings.local.json`, which is never symlinked or committed.
 
-Gate prerequisites: **`jq` is required** — every git gate parses its hook payload with it and fails *open* without it, so a machine missing jq has the whole enforcement layer silently disabled (`setup.sh` and the session-start symlink check both warn loudly). `gitleaks` is recommended — without it the secret gate falls back to built-in patterns only.
+Gate prerequisites: **`jq` is required** — every git gate parses its hook payload with it. Without jq, `setup.sh` aborts the install (pass `--allow-insecure-no-jq` to override) and the git-gate dispatcher fails **closed**, blocking every git command (`SKIP_GIT_GATE_NO_JQ=1` to bypass) rather than letting commands run ungated. `gitleaks` is recommended — without it the secret gate falls back to built-in patterns only.
 
 ## What's inside
 
@@ -35,7 +35,9 @@ Gate prerequisites: **`jq` is required** — every git gate parses its hook payl
 | `hooks/` | Full quality gates (see below) |
 | `scripts/` | `setup.sh`, `statusline.sh`, `notify.sh`, `chime.sh` (Stop/Notification sound), `detect-parent-branch.sh` (stacked-PR base detection), `lint-config.sh` (CI lint of hook wiring, frontmatter, dead references) |
 | `tests/` | Regression suites for every hook and script with gate logic — `bash tests/run-all.sh` |
-| `settings.json` | ~100-rule security deny-list, hook wiring, plugins, statusline |
+| `settings.json` | ~100-rule permission deny-list (Read/Edit tools + Bash command forms), OS-level sandbox `denyRead` for home credential stores, hook wiring, plugins, statusline |
+
+**Secret-read boundary (scoped honestly).** The `Read`/`Edit` deny rules block those *tools* from touching `.env`, private keys, and cloud credentials — they do **not** constrain Bash, so `cat .env` still works. That is deliberate: local app runs (`npm run dev`) and "does this var exist" checks need project `.env` readable. Bash-level containment comes from the sandbox, not the deny-list: `sandbox.filesystem.denyRead` makes a handful of home credential stores (`~/.gnupg`, `~/.git-credentials`, `~/.netrc`, `~/.pypirc`, `~/.vault-token`) unreadable to every Bash subprocess at the OS level, and network egress is limited to a small domain allowlist so a secret that *is* read can't be shipped to an arbitrary host. `~/.ssh` and `~/.aws`/`gcloud` are intentionally left readable so `git push` and local cloud SDKs keep working — widen `denyRead` per-project in `settings.local.json` if a machine warrants it.
 
 ## Workflow (lightweight by default)
 
@@ -75,7 +77,8 @@ Domain-expert subagents, spawned via the Agent tool for substantial work in thei
 
 | Hook | Fires on | Does |
 | --- | --- | --- |
-| `git-gate-dispatch.sh` | any git command | the single PreToolUse entry for all git gates below: parses the payload once and routes by subcommand, so `git status` costs one process instead of ten; runs `pre-git-state-refresh` last and only when nothing blocked |
+| `git-gate-dispatch.sh` | any git command | the single PreToolUse entry for all git gates below: parses the payload once and routes by subcommand, so `git status` costs one process instead of ten; runs `pre-git-state-refresh` last and only when nothing blocked; fails **closed** (blocks git) when `jq` is missing |
+| `pre-git-meta-gate.sh` | any git command | runs first; blocks git meta-execution surfaces the subcommand gates can't see — `git -c <cfg>` / `--config-env` config injection (alias/pager/hooksPath → shell), `--exec-path` binary hijack, and `git diff --no-index` arbitrary-file reads. `git commit -c`, `-C <path>`, `--no-pager` stay allowed |
 | `auto-format.sh` | file edit | Biome/Prettier format |
 | `post-edit-typecheck.sh` | .ts/.tsx edit | typecheck + lint |
 | `invalidate-verify-marker.sh` | file edit | deletes the repo's `/verify-done` marker — checks that passed before an edit say nothing about the tree after it |
@@ -92,8 +95,8 @@ Domain-expert subagents, spawned via the Agent tool for substantial work in thei
 | `pre-push-verify-gate.sh` | git push | requires a fresh `/verify-done` READY marker (`.git/verify-done-ok`); edits invalidate it, TTL backstop expires it; deletion-only (`--delete`, `:branch`) and tag-only pushes exempt |
 | `pre-push-gate.sh` | git push | lint + typecheck + test + build |
 | `retro-nudge.sh` | session stop | after ≥3 gate blocks in a session, suggests `/retro` once so the friction gets encoded, not repeated |
-| `symlink-check.sh` | session start | warns on symlink drift and on a missing `jq` (which would silently disable every gate) |
-| `auto-sync-config.sh` | session start | fast-forwards the config repo from origin when clean and on main (throttled; repo located via the `CLAUDE.md` symlink, not a hardcoded path) |
+| `symlink-check.sh` | session start | warns on symlink drift and on a missing `jq` (which now blocks git commands until it is installed) |
+| `auto-sync-config.sh` | session start | fast-forwards the config repo from origin when clean and on main (throttled; repo located via the `CLAUDE.md` symlink, not a hardcoded path). Updates that touch executable config (`hooks/`, `scripts/`, `settings.json`) are held for manual review, never auto-merged |
 
 Hook-authoring rule: command-matching gates need negative tests where the trigger text appears as *data* — quoted arguments, heredoc bodies, prose, and **filenames/paths** (this repo's own `pre-push-*.sh` names contain every trigger word) — not just as a command. When broadening a gate's match patterns, re-audit the extraction feeding them: a token class that was safe over exact matches can be unsafe over misparsed data. And before shipping any gate change, dry-run the gate against its own release — pipe the exact commit/push command you are about to run through the hook as a payload. The merge gate blocked its own release PR twice, and the force/verify gates blocked their own hardening commits twice, before this was encoded.
 

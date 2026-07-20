@@ -20,10 +20,10 @@ if [ -z "$repo" ]; then
   exit 0
 fi
 
-# Every git gate parses its payload with jq and fails OPEN without it: a
-# machine missing jq has the whole enforcement layer silently disabled.
+# Every git gate parses its payload with jq; the dispatcher now fails CLOSED
+# without it, blocking git commands rather than running them ungated.
 if ! command -v jq >/dev/null 2>&1; then
-  echo "[symlink-check] jq is NOT installed -- every git quality gate is silently disabled. Install it now: brew install jq"
+  echo "[symlink-check] jq is NOT installed -- git commands are blocked until it is. Install it now: brew install jq"
 fi
 
 # Canonicalize a path (best effort; falls back to the raw path).
