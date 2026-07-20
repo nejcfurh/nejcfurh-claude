@@ -7,6 +7,14 @@ Run the project's real quality gate — the exact checks CI runs — and report 
 
 ## 1. Discover what CI actually runs
 
+Check the plan cache first — discovery is the expensive step and its inputs rarely change between runs:
+
+- Run `"$HOME/.claude/scripts/verify-plan-fingerprint.sh"` (hashes CI workflows, package manifests, and lockfiles).
+- If `"$(git rev-parse --git-dir)/verify-done-plan"` exists and its first line equals that fingerprint, the rest of the file is the check plan — one command per line, in run order. Skip discovery and go straight to step 2 with those commands.
+- Otherwise discover below, then write the cache: the fingerprint as line 1, followed by each check command on its own line in run order (include any `cd <dir> && …` prefix a command needs).
+
+Discovery:
+
 - Read `.github/workflows/*.yml` and find every check job: lint, typecheck, tests, build, formatting, anything else.
 - Read `package.json` scripts to resolve what each CI step actually executes.
 - Detect the package manager from the lockfile (`package-lock.json` → npm, `yarn.lock` → yarn, `pnpm-lock.yaml` → pnpm, `bun.lockb`/`bun.lock` → bun). Never assume npm.
