@@ -69,9 +69,18 @@ touch "$failrepo/package-lock.json"
 
 run_case "repo without marker falls back to tests (blocked)" 2 "$failrepo" 'gh pr create --fill'
 
-date > "$failrepo/.git/verify-done-ok"
+# The marker's first line is the verified HEAD; the gate trusts it only while
+# HEAD still matches (what /verify-done records with `git rev-parse HEAD`).
+git -C "$failrepo" rev-parse HEAD > "$failrepo/.git/verify-done-ok"
 run_case "fresh marker trusted: tests not re-run" 0 "$failrepo" 'gh pr create --fill'
 
+# Marker recorded for an earlier commit: HEAD moves, the mtime-fresh marker no
+# longer matches, so the failing tests run and block.
+(cd "$failrepo" && git commit -q --allow-empty -m "chore: second")
+run_case "marker for an earlier commit falls back to tests (blocked)" 2 "$failrepo" 'gh pr create --fill'
+
+# Re-record for the current HEAD, then backdate: a stale mtime is not trusted.
+git -C "$failrepo" rev-parse HEAD > "$failrepo/.git/verify-done-ok"
 touch -t 202601010000 "$failrepo/.git/verify-done-ok"
 run_case "stale marker falls back to tests (blocked)" 2 "$failrepo" 'gh pr create --fill'
 
@@ -91,7 +100,7 @@ fi
 
 run_case "leading cd target's tests run from elsewhere (blocked)" 2 "$neutral" "cd $failrepo && gh pr create --fill"
 
-date > "$failrepo/.git/verify-done-ok"
+git -C "$failrepo" rev-parse HEAD > "$failrepo/.git/verify-done-ok"
 run_case "leading cd target's fresh marker trusted from elsewhere" 0 "$neutral" "cd $failrepo && gh pr create --fill"
 
 rm -rf "$failing" "$passing" "$placeholder" "$failrepo" "$neutral"

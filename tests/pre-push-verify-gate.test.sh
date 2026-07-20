@@ -27,6 +27,10 @@ make_repo() { # -> prints repo path
   printf '%s\n' "$r"
 }
 
+# The marker's first line is the verified HEAD — the gate trusts it only while
+# HEAD still matches. /verify-done writes it with `git rev-parse HEAD`.
+write_marker() { git -C "$1" rev-parse HEAD > "$1/.git/verify-done-ok"; }
+
 run_case() { # run_case <name> <expected-exit> <cwd> <command-string>
   local name="$1" expected="$2" cwd="$3" command="$4" got
   jq -n --arg cmd "$command" '{tool_input:{command:$cmd}}' \
@@ -45,11 +49,23 @@ bare=$(make_repo)
 run_case "push without marker blocked" 2 "$bare" 'git push origin feat/topic'
 
 fresh=$(make_repo)
-date > "$fresh/.git/verify-done-ok"
+write_marker "$fresh"
 run_case "push with fresh marker allowed" 0 "$fresh" 'git push origin feat/topic'
 
+# A marker recorded for an earlier commit must not certify a later one: verify,
+# then move HEAD, and the mtime-fresh marker no longer matches.
+moved=$(make_repo)
+write_marker "$moved"
+(cd "$moved" && git commit -q --allow-empty -m second)
+run_case "marker for an earlier commit blocked" 2 "$moved" 'git push origin feat/topic'
+
+# A date-only marker (the pre-HEAD-binding format) carries no SHA — never trusted.
+legacy=$(make_repo)
+date > "$legacy/.git/verify-done-ok"
+run_case "legacy date-only marker blocked" 2 "$legacy" 'git push origin feat/topic'
+
 stale=$(make_repo)
-date > "$stale/.git/verify-done-ok"
+write_marker "$stale"
 touch -t 202601010000 "$stale/.git/verify-done-ok"
 run_case "push with stale marker blocked" 2 "$stale" 'git push origin feat/topic'
 
@@ -94,7 +110,7 @@ else
   fail=$((fail + 1))
 fi
 
-rm -rf "$bare" "$fresh" "$stale"
+rm -rf "$bare" "$fresh" "$moved" "$legacy" "$stale"
 
 echo ""
 echo "$pass passed, $fail failed"

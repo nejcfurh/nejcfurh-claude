@@ -77,13 +77,20 @@ git_dir=$(git -C "$repo" rev-parse --absolute-git-dir 2>/dev/null) || exit 0
 marker="$git_dir/verify-done-ok"
 
 ttl="${VERIFY_DONE_TTL_MINUTES:-120}"
-if [ -f "$marker" ]; then
-  if [ -n "$(find "$marker" -mmin -"$ttl" 2>/dev/null)" ]; then
-    exit 0
-  fi
+if [ ! -f "$marker" ]; then
+  reason="was not found"
+elif [ -z "$(find "$marker" -mmin -"$ttl" 2>/dev/null)" ]; then
   reason="is older than $ttl minutes"
 else
-  reason="was not found"
+  # Bind the pass to the exact commit: /verify-done writes the verified HEAD
+  # as the marker's first line, so a marker recorded for an earlier commit
+  # cannot certify a push of a later one (rebase/amend/extra commit).
+  marker_head=$(head -n1 "$marker" 2>/dev/null | tr -d '[:space:]')
+  cur_head=$(git -C "$repo" rev-parse HEAD 2>/dev/null)
+  if [ -n "$marker_head" ] && [ -n "$cur_head" ] && [ "$marker_head" = "$cur_head" ]; then
+    exit 0
+  fi
+  reason="does not match the current commit — HEAD moved since the pass"
 fi
 
 "$(dirname "$0")/record-gate-block.sh" "pre-push-verify-gate" "$payload" 2>/dev/null || true
