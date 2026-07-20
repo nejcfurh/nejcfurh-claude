@@ -129,11 +129,7 @@
     ],
     "defaultMode": "auto"
   },
-  "sandbox": {
-    "enabled": true,
-    "autoAllowBashIfSandboxed": true
-  },
-  "model": "claude-fable-5[1m]",
+  "model": "opus[1m]",
   "hooks": {
     "PreToolUse": [
       {
@@ -267,6 +263,20 @@
       }
     }
   },
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "filesystem": {
+      "denyRead": [
+        "~/.gnupg",
+        "~/.git-credentials",
+        "~/.netrc",
+        "~/.pypirc",
+        "~/.vault-token"
+      ]
+    }
+  },
+  "effortLevel": "xhigh",
   "tui": "default",
   "skipWorkflowUsageWarning": true,
   "editorMode": "normal",
