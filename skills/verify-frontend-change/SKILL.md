@@ -12,8 +12,9 @@ Never report a UI change as complete based on a successful edit, typecheck, or t
 3. **Console must be clean**: zero new errors or warnings (hydration warnings count). Check the network tab for failed or duplicate requests introduced by the change.
 4. **States, not just the happy path**: loading, empty, error, and disabled states of the changed surface; keyboard focus reaches and operates the control.
 5. **Responsive check**: verify at a mobile viewport and desktop width — layout must not break or overflow at either.
-6. **Animations**: if the change animates, watch it at 6x slowdown (DevTools) for jank, and confirm `prefers-reduced-motion` still yields a usable result.
-7. **Performance (when perf-relevant)**: for changes touching page load, images, fonts, or large lists, run a performance trace / Lighthouse pass and check Core Web Vitals (LCP, CLS, INP) did not regress.
+6. **Theme check**: if the app supports dark mode (a theme toggle, `darkMode: 'class'`, or `prefers-color-scheme` styles), verify the change in BOTH themes — projects with custom palettes can make standard utility classes render pale-on-pale. Treat low-contrast or "washed out" text in your own screenshots as a failing finding, never as rendering noise to gloss over.
+7. **Animations**: if the change animates, watch it at 6x slowdown (DevTools) for jank, and confirm `prefers-reduced-motion` still yields a usable result.
+8. **Performance (when perf-relevant)**: for changes touching page load, images, fonts, or large lists, run a performance trace / Lighthouse pass and check Core Web Vitals (LCP, CLS, INP) did not regress.
 
 ## React Native
 
