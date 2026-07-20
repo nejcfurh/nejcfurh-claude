@@ -19,7 +19,7 @@
 - Never merge PRs — the user merges manually. (Enforced by hook.)
 - One PR = one concern. Once a PR is open, a new request gets a new branch off main — only add commits to an open PR when the user explicitly says to. An open PR can merge at any moment; commits stacked on its branch strand.
 - Rebase onto the target branch (`git fetch origin main && git rebase origin/main`) before creating a PR.
-- Run `/verify-done` before pushing any branch. (Enforced by hook — a READY verdict records a marker that pushes require; any edit invalidates it.)
+- Run `/verify-done` before pushing any branch. (Enforced by hook — a READY verdict records a marker that pushes require; any edit invalidates it. The marker is only minted for a clean tracked tree: checks that passed on a dirty tree get READY TO COMMIT, not push-ready READY.)
 - PR descriptions: bullet points in the summary, not prose paragraphs.
 - After pushing new commits to an existing PR, update its title and description (`gh pr edit`) to reflect all changes.
 - If the repo has a PR template, use it.

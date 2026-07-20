@@ -58,7 +58,17 @@ Verification skills + hooks are the foundation; Claude Code's loop primitives bu
 | Goal-based | `/goal` + deterministic criteria | `/goal all /verify-done checks pass, stop after 5 tries` |
 | Time-based | `/loop` / `/schedule` | `/loop 5m check my PR, address review comments, fix failing CI` |
 
-No custom CI-watcher machinery needed — `/loop` covers PR babysitting natively, and the push gates fire inside every loop iteration, so a loop won't *accidentally* hand back unverified work. These are cooperative guardrails, not an unbypassable boundary: the READY marker is a file the session itself can write, so they reliably catch the common accidental miss — not an agent set on routing around them. The marker is bound to the verified commit (see the push-gate rows below), which closes the stale-marker case but not the forge-it case.
+No custom CI-watcher machinery needed — `/loop` covers PR babysitting natively, and the push gates fire inside every loop iteration, so a loop won't *accidentally* hand back unverified work. These are cooperative guardrails, not an unbypassable boundary: the READY marker is a file the session itself can write, so they reliably catch the common accidental miss — not an agent set on routing around them. The marker is bound to the verified commit (see the push-gate rows below) and is only ever minted for a clean tracked tree (`scripts/record-verify-pass.sh` refuses otherwise — a push publishes commits, not the working tree, so a dirty-tree pass is READY TO COMMIT, not push-ready). That closes the stale-marker and dirty-tree cases, but not the forge-it case.
+
+The PR-babysitting loop is a composition, not new machinery — `/loop` for the cadence, the `address-pr-comment` skill for the work, explicit budgets for the stop:
+
+```
+/loop 10m if PR checks are green and no unresolved review comments remain, stop the loop;
+otherwise run /address-pr-comment and fix failing CI. Never merge. Stop after 6 cycles,
+or if the same check fails twice for the same root cause — escalate instead.
+```
+
+Grouping comments by root cause, batching the fixes, and re-verifying before push all happen inside `address-pr-comment` and the push gates — the loop only supplies cadence and budgets.
 
 ## Personas
 
@@ -87,7 +97,7 @@ Domain-expert subagents, spawned via the Agent tool for substantial work in thei
 | `pre-commit-secret-gate.sh` | git commit | secret scan of everything the commit could publish (staged, unstaged tracked, untracked) — gitleaks when installed plus built-in high-confidence patterns |
 | `pre-git-state-refresh.sh` | git/gh writes | injects ground-truth PR state (cached ~60s per repo+branch — advisory context, no gate reads it) |
 | `pre-merge-gate.sh` | gh | blocks `gh pr merge` (and the `gh api …/merge` fallback) — the user merges PRs manually |
-| `pre-pr-test-gate.sh` | gh pr create | fallback test gate in the checkout the command targets: a fresh `/verify-done` READY marker whose recorded HEAD matches the current commit is trusted (tests already certified — no re-run); without a matching marker, tests must pass |
+| `pre-pr-test-gate.sh` | gh pr create | smoke-test fallback in the checkout the command targets: a fresh `/verify-done` READY marker whose recorded HEAD matches the current commit is trusted (tests already certified — no re-run); without a matching marker, tests must pass — and deliberately mint no marker, since a tests-only pass must not certify the full suite |
 | `pre-push-branch-gate.sh` | git push | blocks pushes targeting the repo's default branch, whatever its name — bare `git push`, `HEAD`, refspecs, `--all`, `--delete` |
 | `pre-push-author-gate.sh` | git push | blocks pushes whose outgoing commits carry a foreign author — fixture commits and tooling artifacts never ride along unnoticed |
 | `pre-push-verify-gate.sh` | git push | requires a fresh `/verify-done` READY marker (`.git/verify-done-ok`) whose recorded HEAD matches the pushed commit — a later commit, amend, or rebase invalidates it (as does any edit); TTL backstop expires it; deletion-only (`--delete`, `:branch`) and tag-only pushes exempt |
