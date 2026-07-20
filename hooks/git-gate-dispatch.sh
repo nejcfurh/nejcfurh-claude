@@ -37,6 +37,16 @@ fi
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
 [ -n "$cmd" ] || exit 0
 
+# Gates fall back to $PWD when the command names no explicit target, but the
+# hook process starts in the session's original project dir — not the checkout
+# the Bash tool is actually in after a persisted `cd` (worktrees especially).
+# The payload's cwd is that checkout; run every gate from there. A missing or
+# vanished dir falls back to the hook's own cwd.
+payload_cwd=$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null)
+if [ -n "$payload_cwd" ] && [ -d "$payload_cwd" ]; then
+  cd "$payload_cwd" 2>/dev/null || true
+fi
+
 run_gate() {
   gate="$HOOK_DIR/$1"
   [ -x "$gate" ] || return 0

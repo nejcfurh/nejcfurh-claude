@@ -59,7 +59,50 @@ else
   fail=$((fail + 1))
 fi
 
-rm -rf "$bad" "$good" "$empty"
+# --- verify-done marker trust and target resolution ---------------------------
+export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@test
+export GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@test
+
+# Fixture: git repo whose lint fails — only a trusted marker lets a push through.
+badrepo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+(cd "$badrepo" && git init -q -b feat/x \
+  && git config user.email test@test && git config user.name test \
+  && git commit -q --allow-empty -m "chore: init")
+printf '{"name":"badrepo","scripts":{"lint":"exit 1"}}' > "$badrepo/package.json"
+touch "$badrepo/package-lock.json"
+
+run_case "repo without marker falls back to suite (blocked)" 2 "$badrepo" 'git push origin feat/x'
+
+date > "$badrepo/.git/verify-done-ok"
+run_case "fresh marker trusted: suite not re-run" 0 "$badrepo" 'git push origin feat/x'
+
+# A stale marker must not be trusted — the suite runs and blocks.
+touch -t 202601010000 "$badrepo/.git/verify-done-ok"
+run_case "stale marker falls back to suite (blocked)" 2 "$badrepo" 'git push origin feat/x'
+
+# The gate must act on the checkout the push targets, not the hook's cwd —
+# `git -C <path>` and a leading `cd <path> &&` both name it explicitly.
+neutral=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+rm -f "$badrepo/.git/verify-done-ok"
+run_case "-C target's suite runs from elsewhere (blocked)" 2 "$neutral" "git -C $badrepo push origin feat/x"
+run_case "leading cd target's suite runs from elsewhere (blocked)" 2 "$neutral" "cd $badrepo && git push origin feat/x"
+
+date > "$badrepo/.git/verify-done-ok"
+run_case "-C target's fresh marker trusted from elsewhere" 0 "$neutral" "git -C $badrepo push origin feat/x"
+
+# --- deletion-only and tag-only exemptions ------------------------------------
+# No marker: exit 0 must come from the exemption, not marker trust.
+rm -f "$badrepo/.git/verify-done-ok"
+run_case "deletion push exempt (no suite run)" 0 "$badrepo" 'git push origin --delete feat/old'
+run_case "tag-only push exempt" 0 "$badrepo" 'git push origin --tags'
+run_case "colon delete refspec exempt" 0 "$badrepo" 'git push origin :feat/old'
+run_case "mixed delete and branch push still gated" 2 "$badrepo" 'git push origin feat/x :feat/old'
+run_case "delete flag on continuation line exempt" 0 "$badrepo" 'git push origin \
+  --delete feat/old'
+run_case "quoted --delete is data: real push still gated" 2 "$badrepo" \
+  'echo "git push --delete" && git push origin feat/x'
+
+rm -rf "$bad" "$good" "$empty" "$badrepo" "$neutral"
 
 echo ""
 echo "$pass passed, $fail failed"

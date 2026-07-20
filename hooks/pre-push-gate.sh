@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# PreToolUse (Bash, git push): run every quality script the project defines
-# (lint, typecheck, test, build - in that order) and block on the first failure.
+# PreToolUse (Bash, git push): fallback quality gate. A fresh /verify-done
+# READY marker in the pushed checkout is trusted as-is; without one, run every
+# quality script the project defines (lint, typecheck, test, build - in that
+# order) and block on the first failure. Deletion-only and tag-only pushes
+# publish no new code and are exempt.
 # Bypass: set SKIP_PUSH_GATE to any non-empty value.
 
 set -u
@@ -12,12 +15,78 @@ payload=$(cat 2>/dev/null) || exit 0
 [ -n "$payload" ] || exit 0
 
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
-# Match both `git push …` and `git -C <path> push …` — the -C form has no
-# literal "git push" substring and would otherwise bypass the gate.
-printf '%s\n' "$cmd" | grep -Eq "git[[:space:]]+(-C[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:]]+)[[:space:]]+)?push([[:space:]]|\$)" || exit 0
 
-# Nearest package.json walking up (stop at $HOME or /), from $PWD
-# then falling back to $CLAUDE_PROJECT_DIR.
+# Join backslash-continued lines: a flag on a continuation line is still part
+# of this push. Real newlines keep separating commands (cut below).
+cmd=$(printf '%s\n' "$cmd" | awk '{ if (sub(/\\$/, "")) printf "%s ", $0; else print }')
+
+# Quoted spans are data, not arguments: a string mentioning `git push` must
+# not put this command through the suite. Scan a copy with quoted content
+# emptied — awk reads the whole input as one record so quotes spanning lines
+# strip too (\047 = single quote).
+scan=$(printf '%s' "$cmd" | awk 'BEGIN{RS="\001"} {gsub("\"[^\"]*\"","\"\""); gsub("\047[^\047]*\047","\047\047"); printf "%s", $0}')
+
+# Match `git push …` and `git -C <path> push …` — the -C form has no literal
+# "git push" substring and would otherwise bypass the gate.
+git_push_re="git[[:space:]]+(-C[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:]]+)[[:space:]]+)?push"
+printf '%s\n' "$scan" | grep -Eq "${git_push_re}([[:space:]]|\$)" || exit 0
+
+# Deletion-only and tag-only pushes publish no new code — exempt, same rules
+# as the verify gate. The old-style delete refspec (`git push origin :dead`)
+# counts too, but only when EVERY refspec is a deletion — a mixed push still
+# publishes code. Arguments are anchored on the `git … push` match itself.
+rest=$(printf '%s\n' "$scan" | sed -nE "s/.*${git_push_re}([[:space:]]|\$)//p" | head -1 | sed 's/[;&|].*//')
+seen_remote=0
+colon_deletes=0
+other_refspecs=0
+for tok in $rest; do
+  case "$tok" in
+    --delete|-d|--tags|--follow-tags) exit 0 ;;
+    -*) : ;;
+    :*) colon_deletes=1 ;;
+    *) if [ "$seen_remote" -eq 0 ]; then seen_remote=1; else other_refspecs=1; fi ;;
+  esac
+done
+[ "$colon_deletes" -eq 1 ] && [ "$other_refspecs" -eq 0 ] && exit 0
+
+# Resolve the repo the push actually targets (same approach as the other
+# push gates): `git -C <path>` or a leading `cd <path> &&` wins over the cwd.
+target=""
+target=$(printf '%s\n' "$cmd" | sed -n 's/.*git -C[[:space:]]\{1,\}"\([^"]*\)".*/\1/p' | head -1)
+[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n "s/.*git -C[[:space:]]\{1,\}'\([^']*\)'.*/\1/p" | head -1)
+[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n 's/.*git -C[[:space:]]\{1,\}\([^"'"'"'[:space:]][^[:space:]]*\).*/\1/p' | head -1)
+[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n '1s/^cd[[:space:]]\{1,\}"\([^"]*\)"[[:space:]]*&&.*/\1/p')
+[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n "1s/^cd[[:space:]]\{1,\}'\([^']*\)'[[:space:]]*&&.*/\1/p")
+[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n '1s/^cd[[:space:]]\{1,\}\([^[:space:]]*\)[[:space:]]*&&.*/\1/p')
+case "$target" in *'$'*) target="" ;; esac
+
+repo=""
+for cand in "$target" "$PWD" "${CLAUDE_PROJECT_DIR:-}"; do
+  [ -n "$cand" ] || continue
+  [ -d "$cand" ] || continue
+  if git -C "$cand" rev-parse --show-toplevel >/dev/null 2>&1; then
+    repo="$cand"
+    break
+  fi
+done
+
+# A fresh /verify-done READY marker already certifies these exact checks in
+# the checkout being pushed — verify-done runs what CI runs, any edit deletes
+# the marker, and the verify gate enforces its presence. Re-running the suite
+# here would double every push's wall-clock cost, possibly in a different
+# checkout than the one verified. Trust the marker; the suite below stays as
+# the fallback when none exists.
+if [ -n "$repo" ]; then
+  git_dir=$(git -C "$repo" rev-parse --absolute-git-dir 2>/dev/null)
+  ttl="${VERIFY_DONE_TTL_MINUTES:-120}"
+  if [ -n "$git_dir" ] && [ -f "$git_dir/verify-done-ok" ] \
+    && [ -n "$(find "$git_dir/verify-done-ok" -mmin -"$ttl" 2>/dev/null)" ]; then
+    exit 0
+  fi
+fi
+
+# Nearest package.json walking up (stop at $HOME or /), from the resolved
+# repo, then $PWD, then $CLAUDE_PROJECT_DIR.
 find_pkg_dir() {
   d="$1"
   while :; do
@@ -29,10 +98,13 @@ find_pkg_dir() {
   return 1
 }
 
-pkg_dir=$(find_pkg_dir "$PWD")
-if [ -z "$pkg_dir" ] && [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
-  pkg_dir=$(find_pkg_dir "$CLAUDE_PROJECT_DIR")
-fi
+pkg_dir=""
+for cand in "$repo" "$PWD" "${CLAUDE_PROJECT_DIR:-}"; do
+  [ -n "$cand" ] || continue
+  [ -d "$cand" ] || continue
+  if pkg_dir=$(find_pkg_dir "$cand"); then break; fi
+  pkg_dir=""
+done
 [ -n "$pkg_dir" ] || exit 0
 
 # Package manager from the nearest lockfile, walking up (stop at $HOME or /).
@@ -59,6 +131,7 @@ for step in lint typecheck test build; do
       printf '%s\n' "$out" | tail -n 40
       echo ""
       echo "Fix the failures above before pushing."
+      echo "Prefer /verify-done: a READY verdict records a marker this gate trusts, so the suite is not re-run at push time."
       echo "Bypass (human-only): '!'-prefix the command, or export SKIP_PUSH_GATE=1 in your shell."
     } >&2
     exit 2

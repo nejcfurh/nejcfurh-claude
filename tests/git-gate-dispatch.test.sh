@@ -130,6 +130,34 @@ case "$out" in
     ;;
 esac
 
+# Payload cwd is where gates run: in worktree flows the Bash tool has cd'd
+# into the checkout but the hook process has not — the payload's cwd is the
+# only signal, and gates falling back to $PWD must see it.
+run_pcwd_case() { # run_pcwd_case <name> <expected-exit> <invoke-dir> <payload-cwd> <command-string>
+  local name="$1" expected="$2" inv="$3" pcwd="$4" command="$5" got
+  jq -n --arg cmd "$command" --arg cwd "$pcwd" '{cwd:$cwd, tool_input:{command:$cmd}}' \
+    | (cd "$inv" && bash "$SUT") >/dev/null 2>&1
+  got=$?
+  if [ "$got" = "$expected" ]; then
+    echo "PASS: $name (exit $got)"
+    pass=$((pass + 1))
+  else
+    echo "FAIL: $name — expected exit $expected, got $got"
+    fail=$((fail + 1))
+  fi
+}
+
+neutral=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-neutral.XXXXXX")
+run_pcwd_case "payload cwd resolves repo: unverified push blocked" 2 \
+  "$neutral" "$feature" 'git push origin feat/topic'
+date > "$feature/.git/verify-done-ok"
+run_pcwd_case "payload cwd resolves repo: fresh marker allows push" 0 \
+  "$neutral" "$feature" 'git push origin feat/topic'
+rm -f "$feature/.git/verify-done-ok"
+run_pcwd_case "vanished payload cwd falls back cleanly" 0 \
+  "$neutral" "$neutral/does-not-exist" 'git status'
+rm -rf "$neutral"
+
 # Without jq the dispatcher fails CLOSED: it can't parse the command, so it
 # blocks git rather than letting it run ungated.
 nojq=$(make_nojq_bin)
