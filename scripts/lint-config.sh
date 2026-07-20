@@ -106,7 +106,7 @@ echo "== dead slash-command references"
 # Slash commands mentioned in the rule files must resolve to a skill, a
 # command, or a known built-in/plugin — otherwise the docs promise something
 # the config no longer ships.
-builtins="config fast clear help compact sandbox loop goal schedule workflows remember init review security-review code-review simplify verify run fewer-permission-prompts"
+builtins="config model fast clear help compact sandbox loop goal schedule workflows remember init review security-review code-review simplify verify run fewer-permission-prompts"
 mentions=$(grep -ohE '(^|[[:space:]`(])/[a-z][a-z0-9-]+' \
   "$REPO/CLAUDE.md" "$REPO"/rules/*.md "$REPO/README.md" 2>/dev/null \
   | sed 's|.*/||' | sort -u)

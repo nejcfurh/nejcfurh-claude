@@ -100,10 +100,14 @@ for item in "${ITEMS[@]}"; do
   link_item "$item"
 done
 
-# Keep runtime noise Claude Code writes into settings.json out of git diffs.
+# Keep runtime noise Claude Code writes into settings.json out of git diffs:
+# .feedbackSurveyState and .model. The active model is per-machine runtime
+# state (Claude Code rewrites it into the symlinked settings.json on every
+# /model), so tracking it means a perpetually dirty file; set it with /model
+# or in settings.local.json instead.
 if [ "$CHECK" -eq 0 ] && command -v jq >/dev/null 2>&1; then
   git -C "$REPO_DIR" config filter.strip-ephemeral-state.clean \
-    'jq "del(.feedbackSurveyState)" 2>/dev/null || cat' || true
+    'jq "del(.feedbackSurveyState) | del(.model)" 2>/dev/null || cat' || true
   git -C "$REPO_DIR" config filter.strip-ephemeral-state.smudge cat || true
 fi
 

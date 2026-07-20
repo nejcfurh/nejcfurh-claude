@@ -20,7 +20,7 @@ bash scripts/setup.sh --check   # dry-run
 bash scripts/setup.sh           # symlink into ~/.claude + install refactoring-ui plugin
 ```
 
-Everything is symlinked, so edits in `~/.claude` and in the repo are the same files — commit when it stabilizes. Existing files are backed up to `<path>.bak.<timestamp>`. Machine-local overrides (env vars, experiments) go in `~/.claude/settings.local.json`, which is never symlinked or committed.
+Everything is symlinked, so edits in `~/.claude` and in the repo are the same files — commit when it stabilizes. Existing files are backed up to `<path>.bak.<timestamp>`. Machine-local overrides (env vars, experiments) go in `~/.claude/settings.local.json`, which is never symlinked or committed. The active `model` is per-machine runtime state — a git filter strips it from `settings.json` so it is never committed; set yours with `/model` or in `settings.local.json`.
 
 Gate prerequisites: **`jq` is required** — every git gate parses its hook payload with it. Without jq, `setup.sh` aborts the install (pass `--allow-insecure-no-jq` to override) and the git-gate dispatcher fails **closed**, blocking every git command (`SKIP_GIT_GATE_NO_JQ=1` to bypass) rather than letting commands run ungated. `gitleaks` is recommended — without it the secret gate falls back to built-in patterns only.
 
