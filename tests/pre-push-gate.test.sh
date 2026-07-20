@@ -90,6 +90,18 @@ run_case "leading cd target's suite runs from elsewhere (blocked)" 2 "$neutral" 
 date > "$badrepo/.git/verify-done-ok"
 run_case "-C target's fresh marker trusted from elsewhere" 0 "$neutral" "git -C $badrepo push origin feat/x"
 
+# --- deletion-only and tag-only exemptions ------------------------------------
+# No marker: exit 0 must come from the exemption, not marker trust.
+rm -f "$badrepo/.git/verify-done-ok"
+run_case "deletion push exempt (no suite run)" 0 "$badrepo" 'git push origin --delete feat/old'
+run_case "tag-only push exempt" 0 "$badrepo" 'git push origin --tags'
+run_case "colon delete refspec exempt" 0 "$badrepo" 'git push origin :feat/old'
+run_case "mixed delete and branch push still gated" 2 "$badrepo" 'git push origin feat/x :feat/old'
+run_case "delete flag on continuation line exempt" 0 "$badrepo" 'git push origin \
+  --delete feat/old'
+run_case "quoted --delete is data: real push still gated" 2 "$badrepo" \
+  'echo "git push --delete" && git push origin feat/x'
+
 rm -rf "$bad" "$good" "$empty" "$badrepo" "$neutral"
 
 echo ""

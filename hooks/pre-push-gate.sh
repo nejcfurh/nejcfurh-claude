@@ -2,7 +2,8 @@
 # PreToolUse (Bash, git push): fallback quality gate. A fresh /verify-done
 # READY marker in the pushed checkout is trusted as-is; without one, run every
 # quality script the project defines (lint, typecheck, test, build - in that
-# order) and block on the first failure.
+# order) and block on the first failure. Deletion-only and tag-only pushes
+# publish no new code and are exempt.
 # Bypass: set SKIP_PUSH_GATE to any non-empty value.
 
 set -u
@@ -14,9 +15,39 @@ payload=$(cat 2>/dev/null) || exit 0
 [ -n "$payload" ] || exit 0
 
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
-# Match both `git push …` and `git -C <path> push …` — the -C form has no
-# literal "git push" substring and would otherwise bypass the gate.
-printf '%s\n' "$cmd" | grep -Eq "git[[:space:]]+(-C[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:]]+)[[:space:]]+)?push([[:space:]]|\$)" || exit 0
+
+# Join backslash-continued lines: a flag on a continuation line is still part
+# of this push. Real newlines keep separating commands (cut below).
+cmd=$(printf '%s\n' "$cmd" | awk '{ if (sub(/\\$/, "")) printf "%s ", $0; else print }')
+
+# Quoted spans are data, not arguments: a string mentioning `git push` must
+# not put this command through the suite. Scan a copy with quoted content
+# emptied — awk reads the whole input as one record so quotes spanning lines
+# strip too (\047 = single quote).
+scan=$(printf '%s' "$cmd" | awk 'BEGIN{RS="\001"} {gsub("\"[^\"]*\"","\"\""); gsub("\047[^\047]*\047","\047\047"); printf "%s", $0}')
+
+# Match `git push …` and `git -C <path> push …` — the -C form has no literal
+# "git push" substring and would otherwise bypass the gate.
+git_push_re="git[[:space:]]+(-C[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:]]+)[[:space:]]+)?push"
+printf '%s\n' "$scan" | grep -Eq "${git_push_re}([[:space:]]|\$)" || exit 0
+
+# Deletion-only and tag-only pushes publish no new code — exempt, same rules
+# as the verify gate. The old-style delete refspec (`git push origin :dead`)
+# counts too, but only when EVERY refspec is a deletion — a mixed push still
+# publishes code. Arguments are anchored on the `git … push` match itself.
+rest=$(printf '%s\n' "$scan" | sed -nE "s/.*${git_push_re}([[:space:]]|\$)//p" | head -1 | sed 's/[;&|].*//')
+seen_remote=0
+colon_deletes=0
+other_refspecs=0
+for tok in $rest; do
+  case "$tok" in
+    --delete|-d|--tags|--follow-tags) exit 0 ;;
+    -*) : ;;
+    :*) colon_deletes=1 ;;
+    *) if [ "$seen_remote" -eq 0 ]; then seen_remote=1; else other_refspecs=1; fi ;;
+  esac
+done
+[ "$colon_deletes" -eq 1 ] && [ "$other_refspecs" -eq 0 ] && exit 0
 
 # Resolve the repo the push actually targets (same approach as the other
 # push gates): `git -C <path>` or a leading `cd <path> &&` wins over the cwd.
