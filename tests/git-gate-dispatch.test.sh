@@ -81,18 +81,12 @@ run_case "non-conventional message blocked (conventional gate)" 2 "$feature" \
   'git commit -m "added stuff"'
 
 # Push-gate family is reachable.
-run_case "force push blocked (force gate)" 2 "$feature" \
-  'git push --force origin feat/topic'
 run_case "push without verify marker blocked (verify gate)" 2 "$feature" \
   'git push origin feat/topic'
 
-date > "$feature/.git/verify-done-ok"
-run_case "push with fresh marker allowed" 0 "$feature" \
-  'git push origin feat/topic'
-
 # SKIP_* bypasses must reach the child gates through the dispatcher.
-jq -n --arg cmd 'git push --force origin feat/topic' '{tool_input:{command:$cmd}}' \
-  | (cd "$feature" && SKIP_PUSH_FORCE_GATE=1 bash "$SUT") >/dev/null 2>&1
+jq -n --arg cmd 'git push origin feat/topic' '{tool_input:{command:$cmd}}' \
+  | (cd "$feature" && SKIP_VERIFY_GATE=1 bash "$SUT") >/dev/null 2>&1
 if [ $? -eq 0 ]; then
   echo "PASS: SKIP env reaches child gate through dispatcher (exit 0)"
   pass=$((pass + 1))
@@ -100,6 +94,13 @@ else
   echo "FAIL: SKIP env reaches child gate through dispatcher — expected exit 0"
   fail=$((fail + 1))
 fi
+
+date > "$feature/.git/verify-done-ok"
+run_case "push with fresh marker allowed" 0 "$feature" \
+  'git push origin feat/topic'
+# Force pushes on feature branches are policy-allowed — no gate may block them.
+run_case "force push to feature branch allowed" 0 "$feature" \
+  'git push --force origin feat/topic'
 
 # state-refresh context envelope reaches stdout when nothing blocks...
 out=$(jq -n --arg cmd 'git push origin feat/topic' '{tool_input:{command:$cmd}}' \
@@ -157,6 +158,14 @@ rm -f "$feature/.git/verify-done-ok"
 run_pcwd_case "vanished payload cwd falls back cleanly" 0 \
   "$neutral" "$neutral/does-not-exist" 'git status'
 rm -rf "$neutral"
+
+# Force pushes targeting the default branch must stay blocked end-to-end with
+# the force gate gone — the marker is fresh, so only the branch gate blocks.
+git -C "$main" update-ref refs/remotes/origin/main refs/heads/main
+git -C "$main" symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
+date > "$main/.git/verify-done-ok"
+run_case "force push targeting default branch blocked (branch gate)" 2 "$main" \
+  'git push --force origin main'
 
 # Without jq the dispatcher fails CLOSED: it can't parse the command, so it
 # blocks git rather than letting it run ungated.

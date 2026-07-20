@@ -69,6 +69,18 @@ run_case "refspec feat:main blocked" 2 "$on_feat" 'git push origin feat/topic:ma
 run_case "push --all blocked" 2 "$on_feat" 'git push --all origin'
 run_case "delete of default branch blocked" 2 "$on_feat" 'git push origin --delete main'
 
+# --- force pushes: allowed on feature branches, never on the default ----------
+# With pre-push-force-gate removed, THIS gate is what keeps force pushes off
+# the default branch — these cases must hold in every command form.
+run_case "force push to main blocked" 2 "$on_feat" 'git push --force origin main'
+run_case "-f push to main blocked" 2 "$on_feat" 'git push -f origin main'
+run_case "plus-refspec to main blocked" 2 "$on_feat" 'git push origin +main'
+run_case "plus-refspec full ref to main blocked" 2 "$on_feat" 'git push origin +refs/heads/main'
+run_case "bare force push while on main blocked" 2 "$on_main" 'git push --force'
+run_case "mirror push blocked (would overwrite default)" 2 "$on_feat" 'git push --mirror origin'
+run_case "force push of feature branch allowed" 0 "$on_feat" 'git push --force origin feat/topic'
+run_case "bare force push while on feature branch allowed" 0 "$on_feat" 'git push --force'
+
 # --- default branch under a different name -----------------------------------
 run_case "push to trunk blocked when trunk is default" 2 "$trunk_feat" 'git push origin trunk'
 run_case "bare push while on trunk blocked" 2 "$on_trunk" 'git push'

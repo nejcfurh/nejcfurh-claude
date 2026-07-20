@@ -90,7 +90,6 @@ Domain-expert subagents, spawned via the Agent tool for substantial work in thei
 | `pre-pr-test-gate.sh` | gh pr create | tests must pass |
 | `pre-push-branch-gate.sh` | git push | blocks pushes targeting the repo's default branch, whatever its name — bare `git push`, `HEAD`, refspecs, `--all`, `--delete` |
 | `pre-push-author-gate.sh` | git push | blocks pushes whose outgoing commits carry a foreign author — fixture commits and tooling artifacts never ride along unnoticed |
-| `pre-push-force-gate.sh` | git push | blocks bare force pushes in any command form — `--force`, `-f`, bundled shorts (`-fu`), `+refspec` pushes, flags on continuation lines; `--force-with-lease` stays allowed |
 | `pre-push-verify-gate.sh` | git push | requires a fresh `/verify-done` READY marker (`.git/verify-done-ok`); edits invalidate it, TTL backstop expires it; deletion-only (`--delete`, `:branch`) and tag-only pushes exempt |
 | `pre-push-gate.sh` | git push | fallback suite in the checkout the push targets: a fresh `/verify-done` READY marker is trusted as-is (verify-done already ran the exact CI checks — no redundant re-run); without one, lint + typecheck + test + build; deletion-only and tag-only pushes exempt |
 | `retro-nudge.sh` | session stop | after ≥3 gate blocks in a session, suggests `/retro` once so the friction gets encoded, not repeated |

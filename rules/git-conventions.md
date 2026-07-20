@@ -8,13 +8,13 @@
 - Immediately before committing, review `git diff --cached --stat` — the index may hold earlier staged changes (a stray `git rm`, a forgotten `add`) that would ride along. Commit exactly what the message describes.
 - **Never add Co-Authored-By or any AI attribution** — commits, PR titles/descriptions, issues, comments. This includes the "Generated with Claude Code" footer harnesses append by default. (Enforced by hook.)
 - Never commit directly to `main`/`master` — verify the branch first, use a feature branch. (Enforced by hook.)
-- Autonomous commit, push, and PR creation are allowed by default — no separate "now commit/push" instruction is needed. Before pushing: work on a feature branch, run `/verify-done`, and let the gates pass. Still **never** auto-merge (the user merges), never push to the default branch, and never force-push without asking. A project that wants a human checkpoint can re-require explicit instructions in its own CLAUDE.md.
+- Autonomous commit, push, and PR creation are allowed by default — no separate "now commit/push" instruction is needed. Before pushing: work on a feature branch, run `/verify-done`, and let the gates pass. Still **never** auto-merge (the user merges) and never push to the default branch; force pushes to feature branches need no asking. A project that wants a human checkpoint can re-require explicit instructions in its own CLAUDE.md.
 - **Never route around a gate.** When a hook blocks a git operation, do not re-issue it through wrapper scripts, alternate command forms, or anything else that hides the operation from the gates. Fix the trigger instead (feature branch, ff-merge) or hand the exact command to the user to run with the `!` prefix.
 
 ## Branches and PRs
 
 - Never push to the default branch — feature branch + PR, always. (Enforced by hook.)
-- Never force-push without asking immediately before the push — plan approval is not push approval. One exception: `/rebase` may push the current feature branch with `--force-with-lease` after a **conflict-free** rebase; pushes after manual conflict resolution still require confirmation. Never bare `--force` (enforced by hook), never a protected branch.
+- Force pushes to feature branches are allowed without asking — bare `--force` included, though prefer `--force-with-lease` when the remote may have moved (it fails instead of clobbering unseen commits). Never force-push the default branch or any protected branch — pushes targeting the default branch are blocked outright (hook + deny rules).
 - To undo commits, use `git reset --soft` (keeps changes staged). Never `git reset --hard` — it destroys work and is deny-blocked; if a hard discard is truly needed, ask the user to run it themselves.
 - Never merge PRs — the user merges manually. (Enforced by hook.)
 - Rebase onto the target branch (`git fetch origin main && git rebase origin/main`) before creating a PR.

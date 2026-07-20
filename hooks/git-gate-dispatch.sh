@@ -63,7 +63,6 @@ run_gate pre-git-meta-gate.sh
 case "$cmd" in
   *push*)
     run_gate pre-push-branch-gate.sh
-    run_gate pre-push-force-gate.sh
     run_gate pre-push-verify-gate.sh
     run_gate pre-push-author-gate.sh
     run_gate pre-push-gate.sh
