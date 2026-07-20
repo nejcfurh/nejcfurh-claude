@@ -53,6 +53,28 @@ else
   fail=$((fail + 1))
 fi
 
+# Local node_modules/.bin binary is preferred over npx resolution.
+proj=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+mkdir -p "$proj/node_modules/.bin" "$proj/src"
+printf '{}' > "$proj/.prettierrc"
+{
+  printf '%s\n' '#!/bin/bash'
+  printf '%s\n' 'touch "$(dirname "$0")/prettier-called"'
+  printf '%s\n' 'exit 0'
+} > "$proj/node_modules/.bin/prettier"
+chmod +x "$proj/node_modules/.bin/prettier"
+printf '%s' "$badly_formatted" > "$proj/src/app.ts"
+
+run_case "local prettier bin path exits clean" "$proj/src/app.ts"
+if [ -f "$proj/node_modules/.bin/prettier-called" ]; then
+  echo "PASS: local node_modules/.bin/prettier was invoked"
+  pass=$((pass + 1))
+else
+  echo "FAIL: local node_modules/.bin/prettier was invoked — stub never ran"
+  fail=$((fail + 1))
+fi
+rm -rf "$proj"
+
 rm -rf "$work"
 
 echo ""

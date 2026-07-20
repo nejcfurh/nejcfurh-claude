@@ -64,12 +64,55 @@ rm -rf "$nowhere"
 # git commit in a repo, with a stubbed gh that always fails -> no-open-pr.
 repo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 stub=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+cache=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 printf '#!/bin/bash\nexit 1\n' > "$stub/gh"
 chmod +x "$stub/gh"
 (cd "$repo" && git init -q -b feat/x && git commit -q --allow-empty -m init)
-out=$(payload 'git commit -m "feat: x"' | (cd "$repo" && PATH="$stub:$PATH" bash "$SUT") 2>/dev/null)
+out=$(payload 'git commit -m "feat: x"' \
+  | (cd "$repo" && PATH="$stub:$PATH" PR_STATE_CACHE_DIR="$cache" bash "$SUT") 2>/dev/null)
 check "commit with no PR reports no-open-pr" "branch=feat/x no-open-pr" "$out"
-rm -rf "$repo" "$stub"
+rm -rf "$repo" "$stub" "$cache"
+
+# --- the ~60s cache: one GitHub round-trip per repo+branch, not one per call --
+repo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+stub=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+cache=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+counter="$stub/calls"
+printf '#!/bin/bash\necho x >> "%s"\nexit 1\n' "$counter" > "$stub/gh"
+chmod +x "$stub/gh"
+(cd "$repo" && git init -q -b feat/x && git commit -q --allow-empty -m init)
+
+out=$(payload 'git push' \
+  | (cd "$repo" && PATH="$stub:$PATH" PR_STATE_CACHE_DIR="$cache" bash "$SUT") 2>/dev/null)
+check "first lookup queries gh" "no-open-pr" "$out"
+
+out=$(payload 'git push' \
+  | (cd "$repo" && PATH="$stub:$PATH" PR_STATE_CACHE_DIR="$cache" bash "$SUT") 2>/dev/null)
+check "cached lookup still emits the context line" "no-open-pr" "$out"
+
+calls=$(wc -l < "$counter" | tr -d '[:space:]')
+if [ "$calls" = "1" ]; then
+  echo "PASS: second lookup served from cache (1 gh call)"
+  pass=$((pass + 1))
+else
+  echo "FAIL: second lookup served from cache — expected 1 gh call, got $calls"
+  fail=$((fail + 1))
+fi
+
+# A stale cache entry must refetch.
+touch -t 202601010000 "$cache"/* 2>/dev/null
+out=$(payload 'git push' \
+  | (cd "$repo" && PATH="$stub:$PATH" PR_STATE_CACHE_DIR="$cache" bash "$SUT") 2>/dev/null)
+check "stale cache still emits the context line" "no-open-pr" "$out"
+calls=$(wc -l < "$counter" | tr -d '[:space:]')
+if [ "$calls" = "2" ]; then
+  echo "PASS: stale cache refetches (2 gh calls)"
+  pass=$((pass + 1))
+else
+  echo "FAIL: stale cache refetches — expected 2 gh calls, got $calls"
+  fail=$((fail + 1))
+fi
+rm -rf "$repo" "$stub" "$cache"
 
 echo ""
 echo "$pass passed, $fail failed"

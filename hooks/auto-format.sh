@@ -53,14 +53,25 @@ done
 
 [ -n "$formatter" ] || exit 0
 
+# Invoke the local node_modules/.bin binary directly when present — npx
+# resolution costs 100-300ms per edit for the same result. npx stays as the
+# fallback for hoisted/workspace layouts where .bin lives elsewhere.
 case "$formatter" in
   biome)
-    ( cd "$cfg_dir" && npx --no-install @biomejs/biome format --write "$file" ) >/dev/null 2>&1 \
-      || ( cd "$cfg_dir" && biome format --write "$file" ) >/dev/null 2>&1 \
-      || true
+    if [ -x "$cfg_dir/node_modules/.bin/biome" ]; then
+      ( cd "$cfg_dir" && node_modules/.bin/biome format --write "$file" ) >/dev/null 2>&1 || true
+    else
+      ( cd "$cfg_dir" && npx --no-install @biomejs/biome format --write "$file" ) >/dev/null 2>&1 \
+        || ( cd "$cfg_dir" && biome format --write "$file" ) >/dev/null 2>&1 \
+        || true
+    fi
     ;;
   prettier)
-    ( cd "$cfg_dir" && npx --no-install prettier --write "$file" ) >/dev/null 2>&1 || true
+    if [ -x "$cfg_dir/node_modules/.bin/prettier" ]; then
+      ( cd "$cfg_dir" && node_modules/.bin/prettier --write "$file" ) >/dev/null 2>&1 || true
+    else
+      ( cd "$cfg_dir" && npx --no-install prettier --write "$file" ) >/dev/null 2>&1 || true
+    fi
     ;;
 esac
 
