@@ -79,15 +79,15 @@ Domain-expert subagents, spawned via the Agent tool for substantial work in thei
 | --- | --- | --- |
 | `git-gate-dispatch.sh` | any git command | the single PreToolUse entry for all git gates below: parses the payload once and routes by subcommand, so `git status` costs one process instead of ten; runs every gate from the payload's cwd, so `$PWD` fallbacks resolve the checkout the Bash tool is actually in (worktrees), not the session's start dir; runs `pre-git-state-refresh` last and only when nothing blocked; fails **closed** (blocks git) when `jq` is missing |
 | `pre-git-meta-gate.sh` | any git command | runs first; blocks git meta-execution surfaces the subcommand gates can't see — `git -c <cfg>` / `--config-env` config injection (alias/pager/hooksPath → shell), `--exec-path` binary hijack, and `git diff --no-index` arbitrary-file reads. `git commit -c`, `-C <path>`, `--no-pager` stay allowed |
-| `auto-format.sh` | file edit | Biome/Prettier format |
+| `auto-format.sh` | file edit | Biome/Prettier format (local `node_modules/.bin` when present, npx fallback) |
 | `invalidate-verify-marker.sh` | file edit | deletes the repo's `/verify-done` marker — checks that passed before an edit say nothing about the tree after it |
 | `pre-commit-branch-gate.sh` | git commit | blocks commits on main/master |
 | `pre-commit-coauthor-gate.sh` | git commit | blocks Co-Authored-By / AI attribution |
 | `pre-commit-conventional-gate.sh` | git commit | enforces conventional commits |
 | `pre-commit-secret-gate.sh` | git commit | secret scan of everything the commit could publish (staged, unstaged tracked, untracked) — gitleaks when installed plus built-in high-confidence patterns |
-| `pre-git-state-refresh.sh` | git/gh writes | injects ground-truth PR state |
+| `pre-git-state-refresh.sh` | git/gh writes | injects ground-truth PR state (cached ~60s per repo+branch — advisory context, no gate reads it) |
 | `pre-merge-gate.sh` | gh | blocks `gh pr merge` (and the `gh api …/merge` fallback) — the user merges PRs manually |
-| `pre-pr-test-gate.sh` | gh pr create | tests must pass |
+| `pre-pr-test-gate.sh` | gh pr create | fallback test gate in the checkout the command targets: a fresh `/verify-done` READY marker is trusted (tests already certified — no re-run); without one, tests must pass |
 | `pre-push-branch-gate.sh` | git push | blocks pushes targeting the repo's default branch, whatever its name — bare `git push`, `HEAD`, refspecs, `--all`, `--delete` |
 | `pre-push-author-gate.sh` | git push | blocks pushes whose outgoing commits carry a foreign author — fixture commits and tooling artifacts never ride along unnoticed |
 | `pre-push-verify-gate.sh` | git push | requires a fresh `/verify-done` READY marker (`.git/verify-done-ok`); edits invalidate it, TTL backstop expires it; deletion-only (`--delete`, `:branch`) and tag-only pushes exempt |

@@ -55,7 +55,46 @@ else
   fail=$((fail + 1))
 fi
 
-rm -rf "$failing" "$passing" "$placeholder"
+# --- verify-done marker trust and checkout resolution --------------------------
+export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@test
+export GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@test
+
+# Fixture: git repo whose tests fail — only a trusted marker lets the PR through.
+failrepo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+(cd "$failrepo" && git init -q -b feat/x \
+  && git config user.email test@test && git config user.name test \
+  && git commit -q --allow-empty -m "chore: init")
+printf '{"name":"failrepo","scripts":{"test":"exit 1"}}' > "$failrepo/package.json"
+touch "$failrepo/package-lock.json"
+
+run_case "repo without marker falls back to tests (blocked)" 2 "$failrepo" 'gh pr create --fill'
+
+date > "$failrepo/.git/verify-done-ok"
+run_case "fresh marker trusted: tests not re-run" 0 "$failrepo" 'gh pr create --fill'
+
+touch -t 202601010000 "$failrepo/.git/verify-done-ok"
+run_case "stale marker falls back to tests (blocked)" 2 "$failrepo" 'gh pr create --fill'
+
+# Payload cwd is where the gate acts: the hook is wired directly (no
+# dispatcher cd), so worktree flows depend on it resolving the payload's cwd.
+neutral=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+rm -f "$failrepo/.git/verify-done-ok"
+jq -n --arg cmd 'gh pr create --fill' --arg cwd "$failrepo" '{cwd:$cwd, tool_input:{command:$cmd}}' \
+  | (cd "$neutral" && bash "$SUT") >/dev/null 2>&1
+if [ $? -eq 2 ]; then
+  echo "PASS: payload cwd resolves the checkout (blocked)"
+  pass=$((pass + 1))
+else
+  echo "FAIL: payload cwd resolves the checkout — expected exit 2"
+  fail=$((fail + 1))
+fi
+
+run_case "leading cd target's tests run from elsewhere (blocked)" 2 "$neutral" "cd $failrepo && gh pr create --fill"
+
+date > "$failrepo/.git/verify-done-ok"
+run_case "leading cd target's fresh marker trusted from elsewhere" 0 "$neutral" "cd $failrepo && gh pr create --fill"
+
+rm -rf "$failing" "$passing" "$placeholder" "$failrepo" "$neutral"
 
 echo ""
 echo "$pass passed, $fail failed"
