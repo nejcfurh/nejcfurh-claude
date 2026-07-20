@@ -28,12 +28,12 @@ Gate prerequisites: **`jq` is required** — every git gate parses its hook payl
 
 | Path | Contents |
 | --- | --- |
-| `CLAUDE.md` | Core global rules: priority order, workflow, behavioral rules, security, environment |
+| `CLAUDE.md` | Core global rules: priority order, workflow, loops, behavioral rules, security, environment |
 | `rules/` | Auto-loaded conventions: communication, comments, git, typescript, tests, engineering principles, context7 |
 | `skills/` | Workflow: `grill`, `build`, `verify-done`, `ship`, `debug`, `test`, `prune`, `spec`, `review-pr`, `address-pr-comment`, `commit`, `pr`, `rebase`, `handoff`, `verify-frontend-change`, `retro` · Docs: `context7-mcp`, `find-docs`, `review-code` · Design (Emil Kowalski): `emil-design-eng`, `apple-design`, `animation-vocabulary`, `find-animation-opportunities`, `improve-animations`, `review-animations` |
 | `agents/` | Opt-in subagent personas — see [Personas](#personas) |
 | `hooks/` | Full quality gates (see below) |
-| `scripts/` | `setup.sh`, `statusline.sh`, `notify.sh`, `chime.sh` (Stop/Notification sound), `detect-parent-branch.sh` (stacked-PR base detection), `lint-config.sh` (CI lint of hook wiring, frontmatter, dead references) |
+| `scripts/` | `setup.sh`, `statusline.sh`, `notify.sh`, `chime.sh` (Stop/Notification sound), `detect-parent-branch.sh` (stacked-PR base detection), `lint-config.sh` (CI lint of hook wiring, frontmatter, dead references), `record-verify-pass.sh` (mints the `/verify-done` READY marker, clean tracked tree only), `verify-plan-fingerprint.sh` (hashes the check-plan inputs that key `/verify-done`'s plan cache) |
 | `tests/` | Regression suites for every hook and script with gate logic — `bash tests/run-all.sh` (suites run concurrently, output printed in stable order) |
 | `settings.json` | ~100-rule permission deny-list (Read/Edit tools + Bash command forms), OS-level sandbox `denyRead` for home credential stores, hook wiring, plugins, statusline |
 
@@ -44,7 +44,7 @@ Gate prerequisites: **`jq` is required** — every git gate parses its hook payl
 1. **Understand** — check how the codebase already solves similar problems.
 2. **Align** — plan for non-trivial work; `/grill <topic>` for large features and architectural decisions (interviews you one question at a time, writes CONTEXT.md terms and ADRs as decisions crystallize).
 3. **Implement** — `/build` discipline: small increments, continuous typecheck/tests, atomic commits.
-4. **Verify** — `/verify-done` before every push (hooks enforce it at push time anyway).
+4. **Verify** — `/verify-done` before every push (hooks enforce it at push time anyway). Discovering what CI runs is the expensive step, so the skill caches its discovered command plan in `.git/verify-done-plan`, keyed by `scripts/verify-plan-fingerprint.sh` (a hash of CI workflows, package manifests, and lockfiles) — rediscovery happens only when one of those inputs changes.
 
 Trivial changes (typos, one-liners, version bumps) skip everything.
 
@@ -102,7 +102,7 @@ Domain-expert subagents, spawned via the Agent tool for substantial work in thei
 | `pre-push-author-gate.sh` | git push | blocks pushes whose outgoing commits carry a foreign author — fixture commits and tooling artifacts never ride along unnoticed |
 | `pre-push-verify-gate.sh` | git push | requires a fresh `/verify-done` READY marker (`.git/verify-done-ok`) whose recorded HEAD matches the pushed commit — a later commit, amend, or rebase invalidates it (as does any edit); TTL backstop expires it; deletion-only (`--delete`, `:branch`) and tag-only pushes exempt |
 | `pre-push-gate.sh` | git push | fallback suite in the checkout the push targets: a fresh `/verify-done` READY marker is trusted only when its recorded HEAD matches the current commit (verify-done already ran the exact CI checks — no redundant re-run); otherwise lint + typecheck + test + build; deletion-only and tag-only pushes exempt |
-| `retro-nudge.sh` | session stop | after ≥3 gate blocks in a session, suggests `/retro` once so the friction gets encoded, not repeated |
+| `retro-nudge.sh` | session stop | after ≥3 gate blocks in a session, suggests `/retro` once so the friction gets encoded, not repeated (blocks are tallied by `record-gate-block.sh`, the shared helper every blocking gate calls) |
 | `context-nudge.sh` | session stop | once context usage crosses 50% of the window (read from the transcript's last usage entry), suggests `/handoff` or a fresh session once — long contexts slow every response and degrade quality. Window defaults to 200k; set `CONTEXT_WINDOW_TOKENS=1000000` for 1M sessions, `CONTEXT_NUDGE_PERCENT` to move the threshold |
 | `symlink-check.sh` | session start | warns on symlink drift and on a missing `jq` (which now blocks git commands until it is installed) |
 | `auto-sync-config.sh` | session start | fast-forwards the config repo from origin when clean and on main (throttled; repo located via the `CLAUDE.md` symlink, not a hardcoded path). Updates that touch executable config (`hooks/`, `scripts/`, `settings.json`) are held for manual review, never auto-merged |
