@@ -5,6 +5,14 @@ description: Verify a UI change end-to-end in a running app before declaring it 
 
 Never report a UI change as complete based on a successful edit, typecheck, or test run alone. Verify it the way a human reviewer would — in the running app.
 
+## First: is in-app verification reachable?
+
+Before starting a dev server or writing any workaround, check whether the app can actually be driven here. It **cannot** when the affected surface is auth-gated (or behind a flag/paywall), **and** no local backend is running to authenticate against, **and** no browser tool is available. When that is the case, stop — do not engineer your way in:
+
+- **Never fabricate access.** Do not edit auth guards, redirects, route protection, or feature flags to reach a screenshot (e.g. adding `&& false` to a `!user` redirect), and do not stub out data loading. A view reached by altering the code under test verifies nothing, and the bypass can leak into the commit.
+- **Prefer the preview deployment.** If the branch gets a preview/staging deploy (Vercel, Netlify, a review app), that is where to eyeball an auth-gated surface — record it as the verification path.
+- **Otherwise report and defer.** State exactly which steps you could and could not verify (see Rules) and ask the user to confirm visually. A deferred visual check is fine; a fabricated one is not.
+
 ## Web (React / Next.js)
 
 1. **Run it**: start the dev server (project's package manager) and open the affected page in the browser. If a browser tool is available (Chrome DevTools MCP, Playwright), drive it directly; otherwise ask the user to open the page and confirm.
