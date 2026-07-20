@@ -8,7 +8,7 @@
 - Immediately before committing, review `git diff --cached --stat` — the index may hold earlier staged changes (a stray `git rm`, a forgotten `add`) that would ride along. Commit exactly what the message describes.
 - **Never add Co-Authored-By or any AI attribution** — commits, PR titles/descriptions, issues, comments. This includes the "Generated with Claude Code" footer harnesses append by default. (Enforced by hook.)
 - Never commit directly to `main`/`master` — verify the branch first, use a feature branch. (Enforced by hook.)
-- Never auto-commit or push — wait for explicit instructions.
+- Autonomous commit, push, and PR creation are allowed by default — no separate "now commit/push" instruction is needed. Before pushing: work on a feature branch, run `/verify-done`, and let the gates pass. Still **never** auto-merge (the user merges), never push to the default branch, and never force-push without asking. A project that wants a human checkpoint can re-require explicit instructions in its own CLAUDE.md.
 - **Never route around a gate.** When a hook blocks a git operation, do not re-issue it through wrapper scripts, alternate command forms, or anything else that hides the operation from the gates. Fix the trigger instead (feature branch, ff-merge) or hand the exact command to the user to run with the `!` prefix.
 
 ## Branches and PRs
