@@ -172,11 +172,6 @@
           },
           {
             "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/post-edit-typecheck.sh\"; if [ -x \"$HOOK\" ]; then \"$HOOK\"; fi",
-            "timeout": 60
-          },
-          {
-            "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/invalidate-verify-marker.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true",
             "timeout": 5
           }

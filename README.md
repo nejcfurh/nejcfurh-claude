@@ -80,7 +80,6 @@ Domain-expert subagents, spawned via the Agent tool for substantial work in thei
 | `git-gate-dispatch.sh` | any git command | the single PreToolUse entry for all git gates below: parses the payload once and routes by subcommand, so `git status` costs one process instead of ten; runs `pre-git-state-refresh` last and only when nothing blocked; fails **closed** (blocks git) when `jq` is missing |
 | `pre-git-meta-gate.sh` | any git command | runs first; blocks git meta-execution surfaces the subcommand gates can't see — `git -c <cfg>` / `--config-env` config injection (alias/pager/hooksPath → shell), `--exec-path` binary hijack, and `git diff --no-index` arbitrary-file reads. `git commit -c`, `-C <path>`, `--no-pager` stay allowed |
 | `auto-format.sh` | file edit | Biome/Prettier format |
-| `post-edit-typecheck.sh` | .ts/.tsx edit | typecheck + lint |
 | `invalidate-verify-marker.sh` | file edit | deletes the repo's `/verify-done` marker — checks that passed before an edit say nothing about the tree after it |
 | `pre-commit-branch-gate.sh` | git commit | blocks commits on main/master |
 | `pre-commit-coauthor-gate.sh` | git commit | blocks Co-Authored-By / AI attribution |
