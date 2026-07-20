@@ -205,6 +205,11 @@
             "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/retro-nudge.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/context-nudge.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true",
+            "timeout": 5
           }
         ]
       }

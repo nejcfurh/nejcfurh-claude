@@ -34,7 +34,7 @@ Gate prerequisites: **`jq` is required** — every git gate parses its hook payl
 | `agents/` | Opt-in subagent personas — see [Personas](#personas) |
 | `hooks/` | Full quality gates (see below) |
 | `scripts/` | `setup.sh`, `statusline.sh`, `notify.sh`, `chime.sh` (Stop/Notification sound), `detect-parent-branch.sh` (stacked-PR base detection), `lint-config.sh` (CI lint of hook wiring, frontmatter, dead references) |
-| `tests/` | Regression suites for every hook and script with gate logic — `bash tests/run-all.sh` |
+| `tests/` | Regression suites for every hook and script with gate logic — `bash tests/run-all.sh` (suites run concurrently, output printed in stable order) |
 | `settings.json` | ~100-rule permission deny-list (Read/Edit tools + Bash command forms), OS-level sandbox `denyRead` for home credential stores, hook wiring, plugins, statusline |
 
 **Secret-read boundary (scoped honestly).** The `Read`/`Edit` deny rules block those *tools* from touching `.env`, private keys, and cloud credentials — they do **not** constrain Bash, so `cat .env` still works. That is deliberate: local app runs (`npm run dev`) and "does this var exist" checks need project `.env` readable. Bash-level containment comes from the sandbox, not the deny-list: `sandbox.filesystem.denyRead` makes a handful of home credential stores (`~/.gnupg`, `~/.git-credentials`, `~/.netrc`, `~/.pypirc`, `~/.vault-token`) unreadable to every Bash subprocess at the OS level, and network egress is limited to a small domain allowlist so a secret that *is* read can't be shipped to an arbitrary host. `~/.ssh` and `~/.aws`/`gcloud` are intentionally left readable so `git push` and local cloud SDKs keep working — widen `denyRead` per-project in `settings.local.json` if a machine warrants it.
@@ -93,6 +93,7 @@ Domain-expert subagents, spawned via the Agent tool for substantial work in thei
 | `pre-push-verify-gate.sh` | git push | requires a fresh `/verify-done` READY marker (`.git/verify-done-ok`); edits invalidate it, TTL backstop expires it; deletion-only (`--delete`, `:branch`) and tag-only pushes exempt |
 | `pre-push-gate.sh` | git push | fallback suite in the checkout the push targets: a fresh `/verify-done` READY marker is trusted as-is (verify-done already ran the exact CI checks — no redundant re-run); without one, lint + typecheck + test + build; deletion-only and tag-only pushes exempt |
 | `retro-nudge.sh` | session stop | after ≥3 gate blocks in a session, suggests `/retro` once so the friction gets encoded, not repeated |
+| `context-nudge.sh` | session stop | once context usage crosses 50% of the window (read from the transcript's last usage entry), suggests `/handoff` or a fresh session once — long contexts slow every response and degrade quality. Window defaults to 200k; set `CONTEXT_WINDOW_TOKENS=1000000` for 1M sessions, `CONTEXT_NUDGE_PERCENT` to move the threshold |
 | `symlink-check.sh` | session start | warns on symlink drift and on a missing `jq` (which now blocks git commands until it is installed) |
 | `auto-sync-config.sh` | session start | fast-forwards the config repo from origin when clean and on main (throttled; repo located via the `CLAUDE.md` symlink, not a hardcoded path). Updates that touch executable config (`hooks/`, `scripts/`, `settings.json`) are held for manual review, never auto-merged |
 
