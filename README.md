@@ -60,6 +60,16 @@ Verification skills + hooks are the foundation; Claude Code's loop primitives bu
 
 No custom CI-watcher machinery needed — `/loop` covers PR babysitting natively, and the push gates fire inside every loop iteration, so a loop won't *accidentally* hand back unverified work. These are cooperative guardrails, not an unbypassable boundary: the READY marker is a file the session itself can write, so they reliably catch the common accidental miss — not an agent set on routing around them. The marker is bound to the verified commit (see the push-gate rows below) and is only ever minted for a clean tracked tree (`scripts/record-verify-pass.sh` refuses otherwise — a push publishes commits, not the working tree, so a dirty-tree pass is READY TO COMMIT, not push-ready). That closes the stale-marker and dirty-tree cases, but not the forge-it case.
 
+The PR-babysitting loop is a composition, not new machinery — `/loop` for the cadence, the `address-pr-comment` skill for the work, explicit budgets for the stop:
+
+```
+/loop 10m if PR checks are green and no unresolved review comments remain, stop the loop;
+otherwise run /address-pr-comment and fix failing CI. Never merge. Stop after 6 cycles,
+or if the same check fails twice for the same root cause — escalate instead.
+```
+
+Grouping comments by root cause, batching the fixes, and re-verifying before push all happen inside `address-pr-comment` and the push gates — the loop only supplies cadence and budgets.
+
 ## Personas
 
 Domain-expert subagents, spawned via the Agent tool for substantial work in their domain (skipped for trivial changes). `/grill` can convene them as a read-only panel for cross-domain plans; `/review-pr` offers them for specialist review passes. Deliberately lean: concrete guardrails and red flags only, no role-play filler.
