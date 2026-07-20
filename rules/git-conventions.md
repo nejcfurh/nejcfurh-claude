@@ -17,6 +17,7 @@
 - Force pushes to feature branches are allowed without asking — bare `--force` included, though prefer `--force-with-lease` when the remote may have moved (it fails instead of clobbering unseen commits). Never force-push the default branch or any protected branch — pushes targeting the default branch are blocked outright (hook + deny rules).
 - To undo commits, use `git reset --soft` (keeps changes staged). Never `git reset --hard` — it destroys work and is deny-blocked; if a hard discard is truly needed, ask the user to run it themselves.
 - Never merge PRs — the user merges manually. (Enforced by hook.)
+- One PR = one concern. Once a PR is open, a new request gets a new branch off main — only add commits to an open PR when the user explicitly says to. An open PR can merge at any moment; commits stacked on its branch strand.
 - Rebase onto the target branch (`git fetch origin main && git rebase origin/main`) before creating a PR.
 - Run `/verify-done` before pushing any branch. (Enforced by hook — a READY verdict records a marker that pushes require; any edit invalidates it.)
 - PR descriptions: bullet points in the summary, not prose paragraphs.
