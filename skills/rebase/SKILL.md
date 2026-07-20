@@ -22,7 +22,7 @@ Rebase the current branch onto its base: $ARGUMENTS
 
 Run `git rebase origin/<base>`.
 
-**Clean path (no conflicts):** show the new commit range (`git log --oneline origin/<base>..HEAD`). If the rebase brought in changes to `package.json` or a lockfile (`git diff --name-only ORIG_HEAD HEAD`), reinstall with the project's package manager. Then push with `git push --force-with-lease` (set upstream if missing). Never bare `--force`; if the lease is rejected, the remote moved — stop and report, do not retry harder.
+**Clean path (no conflicts):** show the new commit range (`git log --oneline origin/<base>..HEAD`). If the rebase brought in changes to `package.json` or a lockfile (`git diff --name-only ORIG_HEAD HEAD`), reinstall with the project's package manager. Then push with `git push --force-with-lease` (set upstream if missing). Prefer the lease over bare `--force`; if the lease is rejected, the remote moved — stop and report, do not retry harder.
 
 **Conflict path:** resolve every conflicted commit the rebase stops on, one file at a time:
 
@@ -30,6 +30,6 @@ Run `git rebase origin/<base>`.
 2. **Resolve on the merits** — keep ours, keep theirs, or weave both, based on what each change was trying to do. Never blind-pick a side for a non-trivial hunk. Lockfile conflicts: resolve `package.json` first, then regenerate the lockfile by reinstalling rather than hand-merging it.
 3. **Sweep for leftovers** — no `<<<<<<<`/`=======`/`>>>>>>>` markers anywhere (`git grep`), then stage and `git rebase --continue`. Repeat for the next stop.
 4. **Verify semantically, not just textually** — after the rebase completes: reinstall dependencies if any manifest changed (stale `node_modules` produces phantom type errors in untouched files — reinstall before debugging those), then typecheck and run the tests. Code can merge cleanly and still be broken (a renamed function, a changed signature).
-5. **Report and confirm** — summarize each conflict and how it was resolved (file, both intents, decision). Because conflict resolutions are judgment calls, ask before force-pushing on this path; push with `--force-with-lease` once confirmed.
+5. **Report** — push with `--force-with-lease` (feature-branch force pushes need no confirmation), then summarize each conflict and how it was resolved (file, both intents, decision) so the judgment calls are visible in the report.
 
 If a resolution can't be made safely (both sides rewrote the same logic with incompatible intent), stop, `git rebase --abort` if the user prefers, and lay out the options — never guess through a hunk you don't understand.

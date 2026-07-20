@@ -102,8 +102,6 @@
       "Bash(shred *)",
       "Bash(chmod * ~/.ssh/*)",
       "Bash(chmod * ~/.gnupg/*)",
-      "Bash(git push --force *)",
-      "Bash(git push -f *)",
       "Bash(git reset --hard *)",
       "Bash(gh repo delete *)",
       "Bash(git push origin main *)",
