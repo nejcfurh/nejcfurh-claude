@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# PreToolUse (Bash, gh pr create): fallback quality gate before a PR is
-# opened. A fresh /verify-done READY marker in the target checkout is trusted
-# as-is (verify-done already ran the exact CI checks, tests included);
+# PreToolUse (Bash, gh pr create): lightweight smoke-test fallback before a
+# PR is opened. A fresh /verify-done READY marker in the target checkout is
+# trusted as-is (verify-done already ran the exact CI checks, tests included);
 # without one, run the project's test script and block (exit 2) on failure.
+# Deliberately writes NO marker after a pass: the marker certifies the full
+# CI-equivalent suite, and a tests-only run must not mint that certificate —
+# route through /verify-done to establish reusable verification state.
 # Bypass: set SKIP_PR_TEST_GATE to any non-empty value.
 
 set -u
