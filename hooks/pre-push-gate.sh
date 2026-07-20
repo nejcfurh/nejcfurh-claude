@@ -79,9 +79,17 @@ done
 if [ -n "$repo" ]; then
   git_dir=$(git -C "$repo" rev-parse --absolute-git-dir 2>/dev/null)
   ttl="${VERIFY_DONE_TTL_MINUTES:-120}"
-  if [ -n "$git_dir" ] && [ -f "$git_dir/verify-done-ok" ] \
-    && [ -n "$(find "$git_dir/verify-done-ok" -mmin -"$ttl" 2>/dev/null)" ]; then
-    exit 0
+  marker="$git_dir/verify-done-ok"
+  if [ -n "$git_dir" ] && [ -f "$marker" ] \
+    && [ -n "$(find "$marker" -mmin -"$ttl" 2>/dev/null)" ]; then
+    # Trust the marker only when it certifies THIS commit — verify-done records
+    # the verified HEAD as line 1. A marker left from an earlier commit falls
+    # through to the suite below rather than certifying unverified work.
+    marker_head=$(head -n1 "$marker" 2>/dev/null | tr -d '[:space:]')
+    cur_head=$(git -C "$repo" rev-parse HEAD 2>/dev/null)
+    if [ -n "$marker_head" ] && [ -n "$cur_head" ] && [ "$marker_head" = "$cur_head" ]; then
+      exit 0
+    fi
   fi
 fi
 

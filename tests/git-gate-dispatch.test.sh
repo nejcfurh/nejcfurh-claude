@@ -95,7 +95,7 @@ else
   fail=$((fail + 1))
 fi
 
-date > "$feature/.git/verify-done-ok"
+git -C "$feature" rev-parse HEAD > "$feature/.git/verify-done-ok"
 run_case "push with fresh marker allowed" 0 "$feature" \
   'git push origin feat/topic'
 # Force pushes on feature branches are policy-allowed — no gate may block them.
@@ -151,7 +151,7 @@ run_pcwd_case() { # run_pcwd_case <name> <expected-exit> <invoke-dir> <payload-c
 neutral=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-neutral.XXXXXX")
 run_pcwd_case "payload cwd resolves repo: unverified push blocked" 2 \
   "$neutral" "$feature" 'git push origin feat/topic'
-date > "$feature/.git/verify-done-ok"
+git -C "$feature" rev-parse HEAD > "$feature/.git/verify-done-ok"
 run_pcwd_case "payload cwd resolves repo: fresh marker allows push" 0 \
   "$neutral" "$feature" 'git push origin feat/topic'
 rm -f "$feature/.git/verify-done-ok"
@@ -163,7 +163,7 @@ rm -rf "$neutral"
 # the force gate gone — the marker is fresh, so only the branch gate blocks.
 git -C "$main" update-ref refs/remotes/origin/main refs/heads/main
 git -C "$main" symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
-date > "$main/.git/verify-done-ok"
+git -C "$main" rev-parse HEAD > "$main/.git/verify-done-ok"
 run_case "force push targeting default branch blocked (branch gate)" 2 "$main" \
   'git push --force origin main'
 

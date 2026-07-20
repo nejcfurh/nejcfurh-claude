@@ -73,10 +73,22 @@ touch "$badrepo/package-lock.json"
 
 run_case "repo without marker falls back to suite (blocked)" 2 "$badrepo" 'git push origin feat/x'
 
-date > "$badrepo/.git/verify-done-ok"
+# The marker's first line is the verified HEAD; the gate trusts it only while
+# HEAD still matches (what /verify-done records with `git rev-parse HEAD`).
+git -C "$badrepo" rev-parse HEAD > "$badrepo/.git/verify-done-ok"
 run_case "fresh marker trusted: suite not re-run" 0 "$badrepo" 'git push origin feat/x'
 
-# A stale marker must not be trusted — the suite runs and blocks.
+# Marker recorded for an earlier commit: HEAD moves, the mtime-fresh marker no
+# longer matches, so the failing suite runs and blocks.
+(cd "$badrepo" && git commit -q --allow-empty -m "chore: second")
+run_case "marker for an earlier commit falls back to suite (blocked)" 2 "$badrepo" 'git push origin feat/x'
+
+# A date-only marker (pre-HEAD-binding format) carries no SHA — never trusted.
+date > "$badrepo/.git/verify-done-ok"
+run_case "legacy date-only marker falls back to suite (blocked)" 2 "$badrepo" 'git push origin feat/x'
+
+# Re-record for the current HEAD, then backdate: a stale mtime is not trusted.
+git -C "$badrepo" rev-parse HEAD > "$badrepo/.git/verify-done-ok"
 touch -t 202601010000 "$badrepo/.git/verify-done-ok"
 run_case "stale marker falls back to suite (blocked)" 2 "$badrepo" 'git push origin feat/x'
 
@@ -87,7 +99,7 @@ rm -f "$badrepo/.git/verify-done-ok"
 run_case "-C target's suite runs from elsewhere (blocked)" 2 "$neutral" "git -C $badrepo push origin feat/x"
 run_case "leading cd target's suite runs from elsewhere (blocked)" 2 "$neutral" "cd $badrepo && git push origin feat/x"
 
-date > "$badrepo/.git/verify-done-ok"
+git -C "$badrepo" rev-parse HEAD > "$badrepo/.git/verify-done-ok"
 run_case "-C target's fresh marker trusted from elsewhere" 0 "$neutral" "git -C $badrepo push origin feat/x"
 
 # --- deletion-only and tag-only exemptions ------------------------------------
