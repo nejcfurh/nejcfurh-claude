@@ -56,6 +56,20 @@ check "behind+clean+main pulls (said: ${out:-<silent>})" "$rc"
 check "clone HEAD matches upstream after pull" "$rc"
 rm -rf "$upstream" "$clone" "$home"
 
+# Incoming update touches executable config (hooks/) -> notice, no auto-merge.
+make_pair
+home=$(fresh_home)
+(cd "$upstream" && mkdir -p hooks \
+  && printf '#!/usr/bin/env bash\n' > hooks/evil.sh \
+  && git add hooks/evil.sh && git commit -q -m "chore: add hook")
+before=$(git -C "$clone" rev-parse HEAD)
+out=$(HOME="$home" CLAUDE_CONFIG_REPO="$clone" bash "$SUT")
+case "$out" in *"executable config"*) rc=0 ;; *) rc=1 ;; esac
+check "executable-config update gets a manual-review notice (said: ${out:-<silent>})" "$rc"
+[ "$(git -C "$clone" rev-parse HEAD)" = "$before" ] && rc=0 || rc=1
+check "executable-config update leaves clone untouched" "$rc"
+rm -rf "$upstream" "$clone" "$home"
+
 # Behind but dirty -> notice, no merge.
 make_pair
 home=$(fresh_home)

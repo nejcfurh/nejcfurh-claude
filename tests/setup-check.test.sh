@@ -26,10 +26,41 @@ check() { # check <name> <condition-result>
   fi
 }
 
-run_setup() { # run_setup <target-dir> [--check]
+run_setup() { # run_setup <target-dir> [extra setup.sh args…]
   local tgt="$1"; shift
   CLAUDE_CONFIG_DIR="$tgt" PATH=/usr/bin:/bin bash "$SUT" "$@"
 }
+
+# A bin dir with every standard tool EXCEPT jq. A bare PATH=/usr/bin:/bin does
+# NOT simulate a jq-less machine: current macOS ships jq in /usr/bin.
+make_nojq_bin() {
+  local d b name
+  d=$(mktemp -d "${TMPDIR:-/tmp}/nojqbin.XXXXXX")
+  for b in /bin/* /usr/bin/*; do
+    name=$(basename "$b")
+    [ "$name" = jq ] && continue
+    [ -e "$d/$name" ] || ln -s "$b" "$d/$name"
+  done
+  printf '%s\n' "$d"
+}
+nojq=$(make_nojq_bin)
+
+# Missing jq aborts the install (exit 1) and links nothing.
+tgt0=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-tgt.XXXXXX")
+CLAUDE_CONFIG_DIR="$tgt0" PATH="$nojq" bash "$SUT" >/dev/null 2>&1
+rc=$?
+{ [ "$rc" -eq 1 ] && [ -z "$(ls -A "$tgt0")" ]; } && rc=0 || rc=1
+check "missing jq aborts install (exit 1, nothing linked)" "$rc"
+rm -rf "$tgt0"
+
+# ...unless the operator opts out with --allow-insecure-no-jq.
+tgt1=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-tgt.XXXXXX")
+CLAUDE_CONFIG_DIR="$tgt1" PATH="$nojq" bash "$SUT" --allow-insecure-no-jq >/dev/null 2>&1
+rc=$?
+{ [ "$rc" -eq 0 ] && [ -L "$tgt1/CLAUDE.md" ]; } && rc=0 || rc=1
+check "--allow-insecure-no-jq proceeds without jq" "$rc"
+rm -rf "$tgt1"
+rm -rf "$nojq"
 
 # --check is a true dry run: nothing appears in the target.
 tgt=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-tgt.XXXXXX")

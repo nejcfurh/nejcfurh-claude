@@ -12,15 +12,29 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 CHECK=0
-[ "${1:-}" = "--check" ] && CHECK=1
+ALLOW_NO_JQ=0
+for arg in "$@"; do
+  case "$arg" in
+    --check) CHECK=1 ;;
+    --allow-insecure-no-jq) ALLOW_NO_JQ=1 ;;
+    *) echo "Unknown argument: $arg" >&2; exit 2 ;;
+  esac
+done
 
-# Every git gate parses its hook payload with jq and fails OPEN without it —
-# a machine missing jq has the whole enforcement layer silently disabled.
+# Every git gate parses its hook payload with jq; the dispatcher now blocks git
+# operations without it (fail closed). Installing anyway would ship a config
+# whose entire git-enforcement layer refuses to run — so this is fatal, not a
+# warning. --allow-insecure-no-jq opts out consciously.
 if ! command -v jq >/dev/null 2>&1; then
-  echo "WARNING: jq is not installed. ALL git quality gates (branch, force,"
-  echo "         verify, author, secret, ...) fail open and are silently"
-  echo "         disabled until it is. Install it first: brew install jq"
-  echo
+  echo "ERROR: jq is not installed. Every git quality gate (branch, force," >&2
+  echo "       verify, author, secret, ...) parses its payload with jq, and" >&2
+  echo "       the dispatcher blocks all git commands until it is present." >&2
+  echo "       Install it first: brew install jq" >&2
+  echo "       To install anyway (git gates will block): re-run with" >&2
+  echo "       --allow-insecure-no-jq" >&2
+  [ "$ALLOW_NO_JQ" -eq 1 ] || exit 1
+  echo "       (continuing without jq at your request)" >&2
+  echo >&2
 fi
 if ! command -v gitleaks >/dev/null 2>&1; then
   echo "note: gitleaks not found — the pre-commit secret gate falls back to"

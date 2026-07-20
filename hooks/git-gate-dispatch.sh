@@ -18,7 +18,21 @@ HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 payload=$(cat 2>/dev/null) || exit 0
 [ -n "$payload" ] || exit 0
-command -v jq >/dev/null 2>&1 || exit 0
+
+# Fail CLOSED without jq: every gate parses its payload with it, so a missing
+# jq once meant the whole enforcement layer silently disabled (fail open).
+# Block git commands instead — setup.sh makes jq a hard prerequisite, so this
+# only fires if jq is later removed. Only git commands reach this hook.
+if ! command -v jq >/dev/null 2>&1; then
+  [ -n "${SKIP_GIT_GATE_NO_JQ:-}" ] && exit 0
+  {
+    echo "Blocked: git quality gates require jq, which is not installed."
+    echo "Without jq the gates cannot parse the command, so git operations are"
+    echo "blocked rather than run ungated. Fix: install jq (brew install jq)."
+    echo "Bypass (human-only): export SKIP_GIT_GATE_NO_JQ=1 in your shell."
+  } >&2
+  exit 2
+fi
 
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
 [ -n "$cmd" ] || exit 0
@@ -31,6 +45,10 @@ run_gate() {
   [ "$rc" -eq 2 ] && exit 2
   return 0
 }
+
+# Meta-execution surfaces (git -c / --exec-path / diff --no-index) escape the
+# subcommand gates entirely — check every git command, before routing.
+run_gate pre-git-meta-gate.sh
 
 case "$cmd" in
   *push*)

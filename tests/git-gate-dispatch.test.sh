@@ -30,6 +30,20 @@ make_repo() { # make_repo <branch> -> prints repo path
   printf '%s\n' "$r"
 }
 
+# A bin dir with every standard tool EXCEPT jq, so we can exercise the
+# jq-missing path. A bare PATH=/usr/bin:/bin does NOT work: current macOS ships
+# jq in /usr/bin, so it would still be found.
+make_nojq_bin() {
+  local d b name
+  d=$(mktemp -d "${TMPDIR:-/tmp}/nojqbin.XXXXXX")
+  for b in /bin/* /usr/bin/*; do
+    name=$(basename "$b")
+    [ "$name" = jq ] && continue
+    [ -e "$d/$name" ] || ln -s "$b" "$d/$name"
+  done
+  printf '%s\n' "$d"
+}
+
 run_case() { # run_case <name> <expected-exit> <cwd> <command-string>
   local name="$1" expected="$2" cwd="$3" command="$4" got
   jq -n --arg cmd "$command" '{tool_input:{command:$cmd}}' \
@@ -49,6 +63,12 @@ main=$(make_repo main)
 
 run_case "non-git command passes through" 0 "$feature" 'ls -la'
 run_case "git status routes to no gate" 0 "$feature" 'git status'
+
+# Meta gate is reachable and runs regardless of subcommand.
+run_case "git -c injection routes to meta gate" 2 "$feature" \
+  'git -c core.pager=/bin/sh status'
+run_case "git diff --no-index routes to meta gate" 2 "$feature" \
+  'git diff --no-index /dev/null /etc/hosts'
 
 # Commit-gate family is reachable.
 run_case "conventional commit on feature branch allowed" 0 "$feature" \
@@ -109,6 +129,30 @@ case "$out" in
     pass=$((pass + 1))
     ;;
 esac
+
+# Without jq the dispatcher fails CLOSED: it can't parse the command, so it
+# blocks git rather than letting it run ungated.
+nojq=$(make_nojq_bin)
+jq -n --arg cmd 'git status' '{tool_input:{command:$cmd}}' \
+  | (cd "$feature" && PATH="$nojq" bash "$SUT") >/dev/null 2>&1
+if [ $? -eq 2 ]; then
+  echo "PASS: missing jq blocks git (fail closed, exit 2)"
+  pass=$((pass + 1))
+else
+  echo "FAIL: missing jq must block git — expected exit 2"
+  fail=$((fail + 1))
+fi
+
+jq -n --arg cmd 'git status' '{tool_input:{command:$cmd}}' \
+  | (cd "$feature" && PATH="$nojq" SKIP_GIT_GATE_NO_JQ=1 bash "$SUT") >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+  echo "PASS: SKIP_GIT_GATE_NO_JQ bypasses the no-jq block (exit 0)"
+  pass=$((pass + 1))
+else
+  echo "FAIL: SKIP_GIT_GATE_NO_JQ must allow — expected exit 0"
+  fail=$((fail + 1))
+fi
+rm -rf "$nojq"
 
 rm -rf "$feature" "$main"
 
