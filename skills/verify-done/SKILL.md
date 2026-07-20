@@ -28,7 +28,8 @@ After checks (pass or fail):
 
 End with one of:
 
-- **READY** — all CI checks pass, working tree state is explained (committed, or intentionally uncommitted with a reason).
+- **READY** — all CI checks pass AND the tracked tree is clean (everything committed). Only this verdict is push-ready.
+- **READY TO COMMIT** — all CI checks pass, but tracked changes are uncommitted. A push publishes commits, not the working tree, so this pass does not certify a push: commit the exact tree the checks ran on, then record (below). Untracked files need an explanation but don't force this verdict — they never alter the pushed commit.
 - **NOT READY** — name exactly what's blocking: the failed check, or unexplained uncommitted/untracked files.
 
 Be honest. "Tests pass except one flaky one" is NOT READY.
@@ -37,7 +38,8 @@ Be honest. "Tests pass except one flaky one" is NOT READY.
 
 The pre-push-verify-gate hook blocks pushes without a fresh READY marker — record the verdict so the gate reflects reality:
 
-- **READY** → `git rev-parse HEAD > "$(git rev-parse --git-dir)/verify-done-ok"`
+- **READY** → run `"$HOME/.claude/scripts/record-verify-pass.sh"` — it writes the marker only for a clean tracked tree and refuses otherwise. A refusal means the verdict was actually READY TO COMMIT; never write the marker by hand to get around it.
+- **READY TO COMMIT** → commit, then run the recorder — but only if nothing except the commit itself touched the tree since the checks passed; the committed content is then exactly what was checked. If anything else changed the tree (formatter, codegen, install), re-run the checks first.
 - **NOT READY** → `rm -f "$(git rev-parse --git-dir)/verify-done-ok"`
 
 The marker records the exact commit you verified (its first line is the HEAD SHA). The gate trusts it only while HEAD still matches, so a later commit, amend, or rebase invalidates it — re-run /verify-done and re-record after any of those. Do not write the marker on a NOT READY verdict for any reason — the marker IS the READY verdict. Any Write/Edit after recording also deletes it automatically.

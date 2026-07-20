@@ -58,7 +58,7 @@ Verification skills + hooks are the foundation; Claude Code's loop primitives bu
 | Goal-based | `/goal` + deterministic criteria | `/goal all /verify-done checks pass, stop after 5 tries` |
 | Time-based | `/loop` / `/schedule` | `/loop 5m check my PR, address review comments, fix failing CI` |
 
-No custom CI-watcher machinery needed — `/loop` covers PR babysitting natively, and the push gates fire inside every loop iteration, so a loop won't *accidentally* hand back unverified work. These are cooperative guardrails, not an unbypassable boundary: the READY marker is a file the session itself can write, so they reliably catch the common accidental miss — not an agent set on routing around them. The marker is bound to the verified commit (see the push-gate rows below), which closes the stale-marker case but not the forge-it case.
+No custom CI-watcher machinery needed — `/loop` covers PR babysitting natively, and the push gates fire inside every loop iteration, so a loop won't *accidentally* hand back unverified work. These are cooperative guardrails, not an unbypassable boundary: the READY marker is a file the session itself can write, so they reliably catch the common accidental miss — not an agent set on routing around them. The marker is bound to the verified commit (see the push-gate rows below) and is only ever minted for a clean tracked tree (`scripts/record-verify-pass.sh` refuses otherwise — a push publishes commits, not the working tree, so a dirty-tree pass is READY TO COMMIT, not push-ready). That closes the stale-marker and dirty-tree cases, but not the forge-it case.
 
 ## Personas
 

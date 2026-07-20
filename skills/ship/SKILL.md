@@ -9,7 +9,7 @@ Run every step in order. Stop and report if any step fails.
 
 ## 1. Verify
 
-Run `/verify-done`. Do not proceed past a NOT READY verdict.
+Run `/verify-done`. Proceed only on READY — a READY TO COMMIT verdict means commit first and re-record; NOT READY stops the ship.
 
 ## 2. Git hygiene
 
