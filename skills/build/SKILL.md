@@ -24,7 +24,26 @@ For every increment:
 
 - No drive-by refactors. If you spot unrelated ugliness, note it for the user; don't fix it now.
 - No additions beyond the plan — no extra options, abstractions, or "while I'm here" features.
-- If the plan turns out to be wrong or incomplete mid-build, stop and tell the user; don't silently improvise a new plan.
+
+## Plan drift
+
+Reality diverging from the plan mid-build is normal. Handle it by kind, not by stopping for everything:
+
+**Proceed without asking** — routine, reversible deviations. Record each one in the final summary instead of interrupting:
+
+- implementation details the plan never pinned down: internal naming, file layout, private helper structure
+- an equivalent API of an already-chosen library when the planned one doesn't exist or is deprecated
+- extra tests needed to prove planned behavior
+- small compatibility fixes the change exposes in directly adjacent code (a type error, a broken import)
+
+**Stop and tell the user** — these are the user's decisions, never improvised:
+
+- external API or contract changes; schema or migration-strategy changes
+- new dependencies; destructive or irreversible operations
+- scope expansion, product-behavior changes, or security/privacy trade-offs
+- the plan's approach is wrong at its core, not just in a detail
+
+Every deviation either fits the proceed list or stops the build — there is no silent third option.
 
 ## Finish
 
