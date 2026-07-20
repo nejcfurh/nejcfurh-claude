@@ -22,6 +22,7 @@ Trivial bypass: typos, single-line fixes, version bumps, config tweaks — skip 
 - Loops inherit the same hooks and gates as manual work — verification runs inside every iteration.
 - For long-running work, prefer restarting from a self-contained spec or handoff (fresh context) over grinding through a degraded session — re-feeding the spec beats context rot. `/spec` writes re-runnable specs; `/handoff` compacts a session into one.
 - Before building a scheduled loop or routine, check: the task recurs, an automated check (test/typecheck/build/lint) can reject bad output, and there's a hard stop (turn cap or budget). Miss one → keep it a manual prompt.
+- Every loop declares its budgets up front: max attempts (default 5), zero new dependencies, zero scope expansion. Stop early — escalate instead of retrying harder — when the same root cause survives two distinct fixes, two consecutive iterations fail identically, or an iteration needs a product decision or irreversible action.
 - Loops only get machine-checkable work — lint fixes, dependency bumps, CI triage, flaky-test reproduction. Never auth, payments, architecture, or anything where "done" is a judgment call.
 - Scheduled loops keep a state file (e.g. `STATE.md`) recording what's done, in progress, and escalated, so runs resume instead of restarting.
 
