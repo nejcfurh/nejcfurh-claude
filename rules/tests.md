@@ -3,7 +3,7 @@
 **When to apply:** editing test files (`*.test.ts(x)`, `*.spec.ts(x)`).
 
 - Use the project's existing test runner and patterns — don't introduce a new one.
-- Test behavior, not implementation details.
+- Test behavior, not implementation details — a refactor that preserves behavior must not break the test. Heuristic: if you could rewrite the implementation and the test still passes for the wrong reason (or would pass against no implementation at all), it asserts nothing.
 - Mock external dependencies only (APIs, databases, file system) — not internal modules.
 - Each test independent — no shared mutable state between tests.
 - No hardcoded data coupled to environment — use factories or builders.
