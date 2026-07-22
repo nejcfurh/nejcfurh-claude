@@ -32,8 +32,6 @@
       "WebFetch(domain:docs.github.com)",
       "mcp__context7__resolve-library-id",
       "mcp__context7__query-docs",
-      "mcp__dash-api__list_installed_docsets",
-      "mcp__dash-api__search_documentation",
       "mcp__plugin_figma_figma__get_design_context",
       "mcp__plugin_figma_figma__get_metadata",
       "mcp__plugin_figma_figma__get_screenshot"
@@ -247,7 +245,7 @@
   },
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": false,
     "typescript-lsp@claude-plugins-official": true,
     "figma@claude-plugins-official": true,
     "refactoring-ui-skills@refactoring-ui-plugin": true
@@ -277,5 +275,8 @@
   "tui": "default",
   "skipWorkflowUsageWarning": true,
   "editorMode": "normal",
+  "env": {
+    "CONTEXT_WINDOW_TOKENS": "1000000"
+  },
   "autoCompactEnabled": true
 }
