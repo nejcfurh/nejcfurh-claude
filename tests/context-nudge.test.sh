@@ -7,6 +7,12 @@
 # Run: bash context-nudge.test.sh
 set -u
 
+# This repo exports CONTEXT_WINDOW_TOKENS in its own session env (so the nudge
+# hook honors the 1M window). That value would leak into the cases below that
+# rely on the hook's built-in defaults; clear both inherited vars so each case
+# sees either the default or its own inline override.
+unset CONTEXT_WINDOW_TOKENS CONTEXT_NUDGE_PERCENT
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # A failed mktemp must never leak this suite's git commands into the real repo.
