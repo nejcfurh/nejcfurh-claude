@@ -29,6 +29,7 @@ Trivial bypass: typos, single-line fixes, version bumps, config tweaks — skip 
 ## Behavioral rules
 
 - **Scope**: only implement what was asked — no drive-by refactors, extra features, or unsolicited improvements.
+- **Repo boundaries**: crossing into a different repository than the one in play is a decision point requiring its own sign-off — a "go ahead" in repo A does not authorize writing in repo B. Analyze/read across repos freely, but before creating branches, worktrees, or commits in a second repo, present the concrete diff/plan and hand it off for the user to run there.
 - **Minimal fix**: for bugs, find the root cause and state the smallest possible change first. Expand scope only if the minimal fix is provably insufficient. Never introduce new abstractions or files as part of a bug fix unless asked.
 - **Decisions**: ask before making architectural choices — never silently pick a pattern, library, or approach.
 - **Testing**: write tests when implementing a feature or fixing a bug.
