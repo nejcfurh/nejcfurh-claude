@@ -38,3 +38,4 @@ State from earlier in the conversation goes stale — and so do local clones.
 
 - Use the `gh` CLI for all GitHub operations (PRs, issues, checks, releases).
 - Multi-line PR/issue bodies: write them to a scratch file and pass `--body-file` — inline `--body` strings full of backticks and quotes get mangled or denied by the permission layer.
+- `gh pr edit` can fail **silently**: on some repo/`gh` version combinations it aborts on a Projects-classic GraphQL error while still exiting as if it worked, leaving the old description in place. After any `gh pr edit`, read the field back (`gh pr view <n> --json body`) and confirm the change landed. If it did not, patch via REST instead: `gh api --method PATCH repos/<owner>/<repo>/pulls/<n> -F body=@<file>`.
