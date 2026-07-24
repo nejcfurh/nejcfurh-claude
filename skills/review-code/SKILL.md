@@ -245,8 +245,8 @@ Enforce React 18 and Next.js 14 best practices specific to this project.
 
 Only apply this section when the **React Native profile** is active. It does not replace Categories 1-8 -- it re-points them at React Native semantics. Where a web-only rule does not apply (e.g. Next.js Server/Client boundary, `NEXT_PUBLIC_` env vars, `dynamic()` imports, Tailwind), silently skip it instead of flagging.
 
-- **DRY (Category 1)**: cross-reference with `app/services/`, `app/utilities/`, `app/design/components/`, `app/modules/shared/`, and `app/modules/hooks/`. Flag re-implementations of `Logger`, `PlatformHelper`, `scale`/`scaleFont`/`scaleVertical`, `captureException`, `useAnalytics`, `useFeature`/`usePayloadFeature`/`useFeatureBeta`, or any design-system component in `app/design/`.
-- **Security (Category 2)**: focus on RN-relevant items -- secrets in JS bundle (everything in the JS bundle is shippable to the device), unsafe storage of tokens or PII in `AsyncStorage` without encryption, deep-link handlers accepting unvalidated input, `WebView` with `originWhitelist: ['*']` / `javaScriptEnabled` for untrusted URLs, missing `react-native-permissions` checks before accessing camera/location/photos, hardcoded API keys (RevenueCat, Firebase, AppsFlyer, Braze, Meta). Skip CSRF / `NEXT_PUBLIC_` / server-component leakage rules -- they do not apply.
+- **DRY (Category 1)**: cross-reference with the project's shared service, utility, design-system, and module directories. Flag re-implementations of the project's shared helpers -- logging, platform detection, responsive scaling, error capture, analytics, feature-flag hooks -- or any existing design-system component.
+- **Security (Category 2)**: focus on RN-relevant items -- secrets in JS bundle (everything in the JS bundle is shippable to the device), unsafe storage of tokens or PII in `AsyncStorage` without encryption, deep-link handlers accepting unvalidated input, `WebView` with `originWhitelist: ['*']` / `javaScriptEnabled` for untrusted URLs, missing `react-native-permissions` checks before accessing camera/location/photos, hardcoded API keys for third-party SDKs (analytics, attribution, crash reporting, in-app purchases). Skip CSRF / `NEXT_PUBLIC_` / server-component leakage rules -- they do not apply.
 - **TypeScript (Category 3)**: same strict rules. Additionally, project prefers `interface` over `type` (enforced by `@typescript-eslint/consistent-type-definitions`). Flag `type Foo = { ... }` aliases that could be interfaces.
 - **React patterns (Category 4)**:
   - Hooks rules apply unchanged.
@@ -258,15 +258,15 @@ Only apply this section when the **React Native profile** is active. It does not
 - **Clean code / SOLID (Category 5)**: unchanged.
 - **Error handling (Category 6)**:
   - Project standard: ALWAYS use `async/await`. Flag `.then().catch()` chains as WARNING.
-  - Use `captureException` from `app/services/Sentry` (or re-exported from `app/services`) for error reporting -- NOT raw `Sentry.captureException` and NOT `console.error`.
-  - Never use `console.*` directly -- use the `Logger` service. See Category 9-RN.
+  - Use the project's error-reporting wrapper (e.g. a central `captureException`) for error reporting -- NOT the raw crash-reporter SDK call and NOT `console.error`.
+  - Never use `console.*` directly -- use the project's logging service. See Category 9-RN.
 - **Performance (Category 7)**:
   - Long lists must use `FlashList` from `@shopify/flash-list`, not `FlatList`/`ScrollView.map`, unless the list is provably small and bounded.
   - `useMemo`/`useCallback` for stable references passed into `FlashList`/`FlatList` `renderItem`, `keyExtractor`, animated style factories, and `react-native-reanimated` worklets.
   - Animations should use `react-native-reanimated` worklets -- flag layout-thread animations (`Animated` API with `useNativeDriver: false`) on style props that support native driver.
   - Use `expo-image` (already a dependency) rather than RN core `Image` for caching/perf, unless the file already uses core `Image` consistently.
   - Flag unbounded `useEffect` subscriptions/timers/listeners without cleanup -- mobile leaks compound across navigation.
-- **Testing (Category 8)**: jest with `preset: "react-native"`. Tests live in `__tests__/` or co-located. Flag missing mocks for native modules (`react-native-permissions`, `react-native-firebase/*`, `@sentry/react-native`, `react-native-purchases`, etc.).
+- **Testing (Category 8)**: jest with `preset: "react-native"`. Tests live in `__tests__/` or co-located. Flag missing mocks for native modules (permissions, crash reporting, in-app purchases, push/analytics, etc.).
 
 ---
 
@@ -276,9 +276,9 @@ This replaces Category 9 when the React Native profile is active.
 
 **What to flag:**
 
-- **Logger, never console**: `console.log/error/warn/info/debug` anywhere in `app/` is CRITICAL. The project uses `Logger.log` / `Logger.error` / `Logger.debug` / `Logger.info` / `Logger.warn` from `app/services`. The ESLint rule `no-console: "error"` enforces this.
-- **Sentry**: error reporting must go through `captureException` from `app/services/Sentry` (or re-exported from `app/services`). Do not call `Sentry.captureException` directly from feature code.
-- **Translations -- CRITICAL**: only `en-US.json` may be edited. Any change to `de.json`, `en-GB.json`, `es.json`, `fr.json`, `it.json`, `nl.json`, or `sl.json` is CRITICAL -- they are managed by an external translation service and will be overwritten. When a translation key is removed, only remove it from `en-US.json`.
+- **Logging service, never console**: raw `console.log/error/warn/info/debug` in application code is CRITICAL. Use the project's logging service (e.g. a `Logger.*` wrapper) instead. Enforce with the ESLint rule `no-console: "error"`.
+- **Error reporting**: must go through the project's error-reporting wrapper (e.g. a central `captureException`). Do not call the raw crash-reporter SDK directly from feature code.
+- **Translations -- CRITICAL**: only the source-locale file (e.g. `en-US.json`) may be edited by hand. When the project's other locales are managed by an external translation service, hand-editing them is CRITICAL -- they will be overwritten. Remove a translation key only from the source locale.
 - **Conditional rendering with `&&`**: flag as CRITICAL (see Category 4 override) -- the project standard is `condition ? <X /> : null`.
 - **`async/await` only**: `.then().catch()` chains are a WARNING.
 - **Interfaces over types**: enforced via ESLint. Flag `type X = { ... }` object-shape aliases (unions/intersections of primitives are fine).
@@ -289,7 +289,7 @@ This replaces Category 9 when the React Native profile is active.
 - **Branding**: user-facing strings follow the project's brand spelling and capitalization rules.
 - **`eslint-disable`** without clear justification.
 - **Adding dependencies** when an existing one already covers it (e.g. another date library when `date-fns` is already in use; another animation lib when `react-native-reanimated` + `moti` exist).
-- **Code style**: project Prettier config uses **semicolons, single quotes, JSX single quotes, 4-space indentation, 100-char print width, `arrowParens: "avoid"`**. This is the OPPOSITE of the web project -- do not apply web style rules in this profile.
+- **Code style**: project Prettier config uses **semicolons, single quotes, JSX single quotes, 4-space indentation, 100-char print width, `arrowParens: "avoid"`**. This is the OPPOSITE of the web profile -- do not apply web style rules in this profile.
 - **Commit messages** (only flag if reviewing the commit itself, not normal file findings): conventional-commits format, single-line subject, max 100 characters, no body. CI parsing breaks on multi-line commits.
 
 ---
@@ -298,28 +298,28 @@ This replaces Category 9 when the React Native profile is active.
 
 **What to flag:**
 
-- **Platform checks**: use `PlatformHelper.isIOS()` / `PlatformHelper.isAndroid()` / `PlatformHelper.isAndroidTwelveOrHigher()` from `app/services` instead of raw `Platform.OS === 'ios'`. Raw `Platform.OS` is INFO if it's a single isolated check; WARNING if it duplicates an existing helper.
+- **Platform checks**: use the project's platform helper (e.g. `PlatformHelper.isIOS()` / `isAndroid()`) instead of raw `Platform.OS === 'ios'`. Raw `Platform.OS` is INFO if it's a single isolated check; WARNING if it duplicates an existing helper.
 - **Platform-specific files**: when divergence is large, prefer `Foo.ios.tsx` / `Foo.android.tsx` over sprawling `if (Platform.OS === ...)` branches.
 - **Permissions**: any access to camera, microphone, location, photo library, contacts, notifications, or bluetooth must go through `react-native-permissions` with a `check` + `request` flow. Flag direct native module access that bypasses permission checks.
 - **Safe areas**: screens that render at the top or bottom edge must use `useSafeAreaInsets` or `SafeAreaView` from `react-native-safe-area-context`. Hard-coded status-bar / notch padding is WARNING.
-- **Responsive sizing**: pixel values for fonts, spacing, and component dimensions should use `scale` / `scaleFont` / `scaleVertical` from `app/utilities/scaling` (built on `react-native-size-matters`). Raw pixel literals on small phones / tablets is WARNING.
-- **Theming**: colors and spacing should come from `app/design/style/colors`, `app/design/style/spacing`, and `useAppTheme()` from `app/modules/theming`. Hardcoded hex colors in components are WARNING.
-- **Design system**: text must use the project's `<Text>` wrapper from `app/design/components/textElements/` rather than RN core `<Text>` (the wrapper handles fonts, scaling, and a11y). Same for `Button`, `Page`, container components -- prefer the design-system version.
+- **Responsive sizing**: pixel values for fonts, spacing, and component dimensions should use the project's scaling helpers (commonly built on `react-native-size-matters`). Raw pixel literals on small phones / tablets is WARNING.
+- **Theming**: colors and spacing should come from the project's design tokens and theme hook (e.g. `useTheme()`). Hardcoded hex colors in components are WARNING.
+- **Design system**: text must use the project's `<Text>` wrapper rather than RN core `<Text>` (the wrapper handles fonts, scaling, and a11y). Same for `Button`, `Page`, container components -- prefer the design-system version.
 - **Navigation**: `@react-navigation/*` 6.x. Flag untyped `navigation.navigate('...')` calls -- screen params should use the typed param list. Flag deep links that do not validate the incoming params.
 - **Lists**: prefer `FlashList` from `@shopify/flash-list`. `FlatList` is acceptable for short lists; `ScrollView` + `.map()` over potentially-large arrays is WARNING / CRITICAL depending on bound.
 - **Images**: prefer `expo-image` over RN core `Image`. Always provide explicit `width`/`height` (or `contentFit` for `expo-image`) -- missing dimensions cause layout thrash.
 - **Animations and gestures**: use `react-native-reanimated` (v3) and `react-native-gesture-handler`. Flag `Animated` API with `useNativeDriver: false` on a transform / opacity prop (it can use the native driver). Flag inline worklets that capture non-shared values without `runOnJS`.
 - **Keyboard handling**: use `react-native-keyboard-controller` for keyboard-aware screens, not ad-hoc `KeyboardAvoidingView` + `Platform` branches when the project already wraps the screen.
-- **State management**: Redux is legacy for global state, Zustand for newer local/feature state, Apollo cache for server state. Adding new Redux slices is WARNING -- prefer Zustand unless extending an existing slice. Persisting Zustand requires the `device` prefix (see Category 9-RN).
-- **Feature flags**: use `useFeature` (boolean), `usePayloadFeature` (payload), `useFeatureBeta` (GraphQL beta labs) from `app/modules/featureFlags`. Inline `if (__DEV__)` checks for gating new features is WARNING.
-- **Environment / config**: use `Environment` from `app/utilities/Environment` (which wraps `react-native-config`). Flag direct `process.env.*` access in app code.
-- **Native module side effects at import time**: native modules (`@react-native-firebase/*`, `@sentry/react-native`, `react-native-purchases`, `react-native-appsflyer`, BLE, WebRTC, etc.) doing side-effectful work at top-level import in feature files. They should be initialized in `App.tsx` or a provider, and feature code should call into a thin service wrapper.
+- **State management**: Redux is legacy for global state, Zustand for newer local/feature state, Apollo cache for server state. Adding new Redux slices is WARNING -- prefer Zustand unless extending an existing slice. Persisting Zustand requires the project's persist-marker (see Category 9-RN).
+- **Feature flags**: use the project's feature-flag hooks (boolean / payload / experiment variants) rather than inline gating. Inline `if (__DEV__)` checks for gating new features is WARNING.
+- **Environment / config**: use the project's typed env accessor (commonly wrapping `react-native-config`) instead of direct `process.env.*` access in app code.
+- **Native module side effects at import time**: native modules (crash reporting, analytics/attribution, in-app purchases, BLE, WebRTC, etc.) doing side-effectful work at top-level import in feature files. They should be initialized in `App.tsx` or a provider, and feature code should call into a thin service wrapper.
 - **WebView**: `originWhitelist`, `javaScriptEnabled`, `injectedJavaScript`, and `source.uri` validation -- any WebView with `originWhitelist: ['*']` plus user-controlled URL is CRITICAL.
 - **Memory leaks**: `useEffect` subscriptions to `EventEmitter`, `AppState`, `Linking`, `NetInfo`, BLE listeners, timers (`setInterval`/`setTimeout`), and gesture handlers must return a cleanup function. Missing cleanup is WARNING (CRITICAL on a screen used in a stack that can mount many times).
 - **Reanimated worklets**: capturing JS scope values inside a worklet, calling JS functions without `runOnJS`, and mutating non-`SharedValue` from a worklet are all bugs.
-- **Apollo Client**: prefer generated hooks from `app/types/api/`. Flag `useQuery(MY_DOC)` without the generated wrapper, missing `fetchPolicy` on queries that need fresh data, and missing optimistic updates on mutations affecting the visible list.
-- **Logging PII**: do not log user emails, tokens, payment data, or location to `Logger.*` (it forwards to console in dev, but the habit leaks into Sentry breadcrumbs in some configs).
-- **In-app purchases**: RevenueCat (`react-native-purchases`) is the single source of truth -- flag direct StoreKit / Play Billing calls. Use `useSubscriptionOffer` and the project's payment providers.
+- **Apollo Client**: prefer the project's generated GraphQL hooks over hand-written ones. Flag `useQuery(MY_DOC)` without the generated wrapper, missing `fetchPolicy` on queries that need fresh data, and missing optimistic updates on mutations affecting the visible list.
+- **Logging PII**: do not log user emails, tokens, payment data, or location through the logging service (it forwards to console in dev, but the habit leaks into crash-reporter breadcrumbs in some configs).
+- **In-app purchases**: the project's IAP SDK (e.g. RevenueCat) is the single source of truth -- flag direct StoreKit / Play Billing calls. Use the project's subscription/paywall hooks rather than calling the SDK directly.
 
 ---
 
@@ -332,7 +332,7 @@ Present the review in the following structured format:
 Start with a one-line summary of scope:
 
 ```
-Reviewing: [description of what was reviewed, e.g., "3 files, 142 lines changed on branch sightings-map"]
+Reviewing: [description of what was reviewed, e.g., "3 files, 142 lines changed on branch user-profile"]
 ```
 
 ### Findings
@@ -391,8 +391,8 @@ Follow these principles to ensure high-quality, useful reviews:
 - This command is **read-only**. Do not modify any files, create commits, or push changes.
 - When reviewing PR diffs (`--pr` mode), consider the cumulative effect of all commits, not just individual changes.
 - **Web profile**: cross-reference with `packages/shared` and `packages/ui` when checking for DRY violations.
-- **React Native profile**: cross-reference with `app/services/`, `app/utilities/`, `app/design/`, and `app/modules/shared/` when checking for DRY violations. Treat `app/modules/graphql/generated.ts` and `node_modules/` as read-only.
-- For GraphQL-related code, check that generated types from `graphql-codegen` are being used correctly (Web profile: `packages/*` generated types; React Native profile: `app/types/api/`).
-- When reviewing Zustand stores, verify that state updates are immutable and selectors are properly memoized. In the React Native profile, also verify the `device` prefix on persisted fields.
-- The Review Header should state which profile was used, e.g. `Reviewing (React Native profile): 3 files, 142 lines changed on branch feeder-pairing-fix`.
+- **React Native profile**: cross-reference with the project's shared service, utility, and design-system directories when checking for DRY violations. Treat generated GraphQL output and `node_modules/` as read-only.
+- For GraphQL-related code, check that generated types from `graphql-codegen` are being used correctly -- import from the project's generated types entry point rather than hand-writing them.
+- When reviewing Zustand stores, verify that state updates are immutable and selectors are properly memoized. In the React Native profile, also verify the project's persist-marker convention on persisted fields.
+- The Review Header should state which profile was used, e.g. `Reviewing (React Native profile): 3 files, 142 lines changed on branch settings-crash-fix`.
 - If no issues are found for a category, skip it entirely in the output. Do not list categories with zero findings.
