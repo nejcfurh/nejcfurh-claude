@@ -78,7 +78,16 @@ rc=$?
 { [ "$rc" -eq 0 ] && [ -L "$tgt1/CLAUDE.md" ]; } && rc=0 || rc=1
 check "--allow-insecure-no-jq proceeds without jq" "$rc"
 rm -rf "$tgt1"
-rm -rf "$nojq"
+
+# Same jq-less bin, reused: building it symlinks every entry in /bin and /usr/bin,
+# so a second one is a few thousand needless syscalls under the concurrent runner.
+# The strip filter needs jq; skipping it silently let the per-machine .model key
+# reach a commit, so the run must say so.
+tgt_nojq=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-tgt.XXXXXX")
+out=$(CLAUDE_CONFIG_DIR="$tgt_nojq" PATH="$nojq" bash "$SUT" --allow-insecure-no-jq 2>&1)
+case "$out" in *"strip filter was NOT installed"*) rc=0 ;; *) rc=1 ;; esac
+check "no jq warns that the strip filter was skipped" "$rc"
+rm -rf "$tgt_nojq" "$nojq"
 
 # --check is a true dry run: nothing appears in the target.
 tgt=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-tgt.XXXXXX")
@@ -96,14 +105,6 @@ rc=$?
 { [ "$rc" -eq 0 ] && [ ! -d "$absent" ]; } && rc=0 || rc=1
 check "--check does not create the target directory" "$rc"
 
-# The strip filter needs jq; skipping it silently let the per-machine .model key
-# reach a commit. Without jq the run must say so.
-nojq2=$(make_nojq_bin)
-tgt_nojq=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-tgt.XXXXXX")
-out=$(CLAUDE_CONFIG_DIR="$tgt_nojq" PATH="$nojq2" bash "$SUT" --allow-insecure-no-jq 2>&1)
-case "$out" in *"strip filter was NOT installed"*) rc=0 ;; *) rc=1 ;; esac
-check "no jq warns that the strip filter was skipped" "$rc"
-rm -rf "$tgt_nojq" "$nojq2"
 
 # Apply links every repo item into the target.
 out=$(run_setup "$tgt" 2>&1)
