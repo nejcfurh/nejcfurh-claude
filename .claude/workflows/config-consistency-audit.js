@@ -95,6 +95,11 @@ const DIMENSIONS = [
   },
 ]
 
+// Verifiers per dimension. 5 scans + up to 5x4 verifies + 1 synthesis keeps a
+// clean run near the default "medium" size guideline instead of scaling with
+// however many findings a scan happens to return.
+const VERIFY_CAP = 4
+
 // Fan out → verify each finding as its dimension lands (pipeline, no barrier between the two).
 phase('Scan')
 log(`Scanning ${DIMENSIONS.length} subsystems`)
@@ -111,8 +116,16 @@ const perDimension = await pipeline(
       agentType: 'general-purpose',
     }),
   (scan, dim) => {
-    const findings = (scan && scan.findings) || []
-    if (!findings.length) return []
+    const all = (scan && scan.findings) || []
+    if (!all.length) return []
+    // One verifier per finding, but bounded: a dimension that returns 40 findings
+    // would otherwise spawn 40 agents on its own and blow past the run's size
+    // budget. Report what the cap dropped — a silent truncation reads as
+    // "everything was verified" when it was not.
+    const findings = all.slice(0, VERIFY_CAP)
+    if (all.length > findings.length) {
+      log(`${dim.key}: ${all.length} findings, verifying the first ${findings.length} (cap) — ${all.length - findings.length} unverified`)
+    }
     return parallel(
       findings.map((f) => () =>
         agent(
