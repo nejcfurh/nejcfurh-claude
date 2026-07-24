@@ -32,7 +32,17 @@ Never spin up a fleet unprompted. A Workflow runs only on explicit opt-in — th
 - **Converge every cycle** — loop-until-dry must dedupe against *everything seen*, not just confirmed results, or rejected findings reappear forever.
 - **Constrain nodes that read secrets or permissions** — a node auditing credential/permission config must reason *statically* from the file text. Never prompt it to probe real secret paths (`.vault-token`, `*.pem`, `~/.ssh`) or test whether a deny could be bypassed: that trips the credential-exploration security monitor even when the intent is a benign audit, and taints the run's output.
 - **`isolation: 'worktree'` only when nodes write files in parallel** — a seatbelt for that one topology, not a default tax.
-- **Tier models** — route repetitive extract/classify nodes to a cheaper model; keep the synthesis/adjudication node on the strong one. Omit the override when unsure — nodes inherit the session model.
+- **Tier models** — route repetitive extract/classify nodes to a cheaper model; keep the synthesis/adjudication node on the strong one. Omit the override when unsure — nodes inherit the session model. Phase routing (below) decides which model counts as "the strong one".
+
+## Model routing by phase
+
+**Planning runs on Fable 5. Coding runs on Opus 5 (1M context).** Planning is understand / spec / grill / design / review-the-approach. Coding is implement / fix / verify. The boundary is the moment a plan is agreed, not the first file edit.
+
+- **Subagents** — pass `model` on the Agent call: `'fable'` for planning delegates (`Plan`, `product-manager`, spec and architecture review), `'opus'` for delegates that write code. Definitions in `agents/` deliberately carry no `model:` frontmatter — routing is per-call, chosen by the phase in play, because the same specialist plans in one turn and implements in the next.
+- **Workflow nodes** — same split via `opts.model`. A cheap extract/classify node still goes to `haiku` regardless of phase; phase routing governs the thinking nodes, not the wiring ones.
+- **Main session** — the session model cannot be changed from inside a turn; only the user's `/model` can (`settings.json` is write-blocked and wouldn't apply mid-session either). So state the switch in one line at the boundary, and pick a boundary where the user is already answering — plan approval, spec sign-off — so it costs no extra turn: "Plan's agreed — `/model` to Opus 5 (1M) before I build." Say it once and continue; don't stall the task on it.
+
+The subagent/node `model` enum is `fable | opus | sonnet | haiku` — a tier, not a context variant. There is no `opus[1m]` value to pass; the 1M-context choice exists only at session level.
 
 ## Saved workflows
 
