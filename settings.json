@@ -157,7 +157,7 @@
             "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/pre-pr-test-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
             "if": "Bash(gh pr create *)",
-            "timeout": 120
+            "timeout": 480
           },
           {
             "type": "command",
