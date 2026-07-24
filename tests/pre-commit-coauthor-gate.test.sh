@@ -46,6 +46,23 @@ run_case "git -C form with attribution blocked" 2 \
 
 Co-Authored-By: Someone <noreply@example.com>"'
 
+# Git-level options sit between `git` and the subcommand, so the literal
+# substring "git commit" this gate used to fall back to matched none of these.
+run_case "--no-pager form with attribution blocked" 2 \
+  'git --no-pager commit -m "feat: x
+
+Co-Authored-By: Someone <noreply@example.com>"'
+
+run_case "double-space form with attribution blocked" 2 \
+  'git  commit -m "feat: x
+
+Co-Authored-By: Someone <noreply@example.com>"'
+
+run_case "--git-dir form with attribution blocked" 2 \
+  'git --git-dir=.git commit -m "feat: x
+
+🤖 Generated with Claude Code"'
+
 # Bypass env var must allow anything through.
 jq -n --arg cmd 'git commit -m "x Co-Authored-By: y"' '{tool_input:{command:$cmd}}' \
   | SKIP_COAUTHOR_GATE=1 bash "$SUT" >/dev/null 2>&1

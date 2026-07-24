@@ -11,14 +11,12 @@ payload=$(cat 2>/dev/null) || exit 0
 [ -n "$payload" ] || exit 0
 
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
-# Match both `git commit …` and `git -C <path> commit …` — the -C form has no
-# literal "git commit" substring and would otherwise bypass the gate.
-if ! printf '%s\n' "$cmd" | grep -Eq "git[[:space:]]+-C[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:]]+)[[:space:]]+commit([[:space:]]|\$)"; then
-  case "$cmd" in
-    *"git commit"*) : ;;
-    *) exit 0 ;;
-  esac
-fi
+
+# shellcheck source=hooks/git-cmd-lib.sh
+. "$(dirname "$0")/git-cmd-lib.sh"
+
+git_cmd_scan commit "$cmd"
+[ "$GIT_CMD_N" -gt 0 ] || exit 0
 
 lower=$(printf '%s' "$cmd" | tr '[:upper:]' '[:lower:]')
 case "$lower" in

@@ -82,6 +82,20 @@ run_case "git -C form with bad subject blocked" 2 \
 run_case "git -C form with valid subject allowed" 0 \
   'git -C /some/repo commit -m "feat(auth): add login"'
 
+# Git-level options sit between `git` and the subcommand, so the literal
+# substring "git commit" this gate used to fall back to matched none of these.
+run_case "--no-pager form with bad subject blocked" 2 \
+  'git --no-pager commit -m "added some stuff"'
+
+run_case "double-space form with bad subject blocked" 2 \
+  'git  commit -m "added some stuff"'
+
+run_case "--git-dir form with bad subject blocked" 2 \
+  'git --git-dir=.git commit -m "added some stuff"'
+
+run_case "--no-pager form with valid subject allowed" 0 \
+  'git --no-pager commit -m "feat(auth): add login"'
+
 # Bypass env var must allow anything through.
 jq -n --arg cmd 'git commit -m "junk"' '{tool_input:{command:$cmd}}' \
   | SKIP_CONVENTIONAL_GATE=1 bash "$SUT" >/dev/null 2>&1

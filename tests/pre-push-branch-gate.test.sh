@@ -96,6 +96,43 @@ run_case "non-push command ignored" 0 "$on_main" 'git status'
 run_case "git -C repo-on-main bare push blocked from elsewhere" 2 "$on_feat" \
   "git -C $on_main push"
 
+# --- git-level options before the subcommand ---------------------------------
+# The detection regex tolerated only `-C <path>`; any other git-level option
+# made it miss and the gate exit 0, publishing the default branch unchecked.
+run_case "--no-pager push to main blocked" 2 "$on_feat" 'git --no-pager push origin main'
+run_case "--git-dir push to main blocked" 2 "$on_feat" \
+  'git --git-dir=.git --work-tree=. push origin main'
+run_case "double-space push to main blocked" 2 "$on_feat" 'git  push origin main'
+run_case "-c config push to main blocked" 2 "$on_feat" 'git -c core.pager=cat push origin main'
+run_case "--no-pager bare push while on main blocked" 2 "$on_main" 'git --no-pager push'
+
+# --- --follow-tags is not a tag-only push ------------------------------------
+# It pushes the current branch plus reachable annotated tags. Exempting it as
+# tag-only let a default-branch push skip this gate entirely.
+run_case "--follow-tags while on main blocked" 2 "$on_main" 'git push --follow-tags'
+run_case "--follow-tags with remote while on main blocked" 2 "$on_main" \
+  'git push --follow-tags origin'
+run_case "--follow-tags to main by refspec blocked" 2 "$on_feat" \
+  'git push --follow-tags origin main'
+run_case "--follow-tags on a feature branch allowed" 0 "$on_feat" 'git push --follow-tags'
+run_case "--tags with a main refspec blocked" 2 "$on_feat" 'git push --tags origin main'
+
+# --- every push on the line, not just the first ------------------------------
+# Only one invocation used to be parsed: the greedy `.*` kept the last match on
+# a line and `head -1` kept only the first matching line.
+run_case "feature push then main push blocked" 2 "$on_feat" \
+  'git push origin feat/topic && git push origin main'
+run_case "main push then feature push blocked" 2 "$on_feat" \
+  'git push -u origin main && git push origin feat/topic'
+run_case "main push on a second line blocked" 2 "$on_feat" 'git push origin feat/topic
+git push origin main'
+run_case "main push after a semicolon blocked" 2 "$on_feat" \
+  'git push origin feat/topic; git push origin main'
+run_case "two feature pushes allowed" 0 "$on_feat" \
+  'git push origin feat/topic && git push origin feat/other'
+run_case "cross-repo second push to main blocked" 2 "$on_feat" \
+  "git push origin feat/topic && git -C $on_main push"
+
 # Bypass env var must allow the push through.
 jq -n --arg cmd 'git push origin main' '{tool_input:{command:$cmd}}' \
   | (cd "$on_feat" && SKIP_PUSH_BRANCH_GATE=1 bash "$SUT") >/dev/null 2>&1
