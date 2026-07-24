@@ -108,8 +108,15 @@ _git_cmd_segment() { # _git_cmd_segment <want> <cwd> <token…>
           [ -n "$cpath" ] || cpath="$cwd"
           # shellcheck disable=SC2034  # read by the sourcing gate, not here
           GIT_CMD_CPATH[$GIT_CMD_N]="$cpath"
+          # Newline-joined, not space-joined: no token can contain a newline (the
+          # tokenizer turns one inside a quote into a space), so this is lossless
+          # and a multi-word value like a commit message keeps its boundary.
+          local oldifs="$IFS"
+          IFS='
+'
           # shellcheck disable=SC2034
           GIT_CMD_ARGS[$GIT_CMD_N]="$*"
+          IFS="$oldifs"
           GIT_CMD_N=$((GIT_CMD_N + 1))
         fi
         return 0 ;;
@@ -184,6 +191,51 @@ git_cmd_repo() { # git_cmd_repo <cpath>
       return 0
     fi
   done
+  return 1
+}
+
+# The message a `git commit` invocation carries, printed on stdout; returns 1
+# when it names none. Handles every spelling git accepts: `-m X`, `-mX`,
+# `-am X`, `-amX`, `--message X`, `--message=X`.
+#
+# The gate this replaces matched only `-m "…"` / `-m '…'` with sed, so
+# `--message="wip"`, `-am "wip"`, `-m wip` and `-mwip` all extracted nothing —
+# and the gate treats "no subject" as a parse failure and allows the commit.
+git_commit_message() { # git_commit_message <args-of-one-commit>
+  local args="$1" tok want=0
+  while IFS= read -r tok; do
+    if [ "$want" -eq 1 ]; then
+      printf '%s\n' "$tok"
+      return 0
+    fi
+    case "$tok" in
+      --message=*) printf '%s\n' "${tok#--message=}"; return 0 ;;
+      --message|-m) want=1 ;;
+      -m?*) printf '%s\n' "${tok#-m}"; return 0 ;;
+      # Combined short flags ending in m: -am, -sm, -asm. The character class
+      # keeps `--amend` (two dashes) out, which must not read as a message.
+      -[a-zA-Z]*m) want=1 ;;
+      -[a-zA-Z]*m?*) printf '%s\n' "${tok#*m}"; return 0 ;;
+    esac
+  done <<EOF
+$args
+EOF
+  return 1
+}
+
+# Does a `git commit` invocation reuse an existing message (-c/-C <commit>)?
+# Checked over tokens, not raw text: grepping the command for `-[Cc]` matched the
+# flag inside a message like -m "fix: pass -c to jq" and skipped the gate.
+git_commit_reuses_message() { # git_commit_reuses_message <args-of-one-commit>
+  local args="$1" tok
+  while IFS= read -r tok; do
+    case "$tok" in
+      -c|-C|-c?*|-C?*|--reuse-message|--reuse-message=*|--reedit-message|--reedit-message=*)
+        return 0 ;;
+    esac
+  done <<EOF
+$args
+EOF
   return 1
 }
 

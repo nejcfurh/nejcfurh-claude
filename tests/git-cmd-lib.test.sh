@@ -120,8 +120,46 @@ check "per-invocation cpath: first" "" "${GIT_CMD_CPATH[0]}"
 check "per-invocation cpath: second" "/tmp/other" "${GIT_CMD_CPATH[1]}"
 
 # --- arguments after the subcommand ------------------------------------------
+# Args are newline-joined so a multi-word value keeps its boundary; rendered
+# with spaces here only to keep the expectation readable.
 git_cmd_scan push 'git --no-pager push --force-with-lease origin feat/x'
-check "args exclude git-level options" "--force-with-lease origin feat/x" "${GIT_CMD_ARGS[0]}"
+check "args exclude git-level options" "--force-with-lease origin feat/x" \
+  "$(printf '%s' "${GIT_CMD_ARGS[0]}" | tr '\n' ' ')"
+
+git_cmd_scan commit 'git commit -m "feat: add the login form" --no-verify'
+check "a multi-word arg stays one token" "3" \
+  "$(printf '%s\n' "${GIT_CMD_ARGS[0]}" | wc -l | tr -d ' ')"
+
+# --- commit message extraction -------------------------------------------------
+msg() { # msg <name> <expected> <command>
+  git_cmd_scan commit "$3"
+  check "$1" "$2" "$(git_commit_message "${GIT_CMD_ARGS[0]}")"
+}
+msg "-m quoted"            "feat: x"  'git commit -m "feat: x"'
+msg "-m single-quoted"     "feat: x"  "git commit -m 'feat: x'"
+msg "-m bare word"         "wip"      'git commit -m wip'
+msg "-mvalue attached"     "wip"      'git commit -mwip'
+msg "-am combined"         "feat: x"  'git commit -am "feat: x"'
+msg "-amvalue attached"    "wip"      'git commit -amwip'
+msg "--message="           "feat: x"  'git commit --message="feat: x"'
+msg "--message separate"   "feat: x"  'git commit --message "feat: x"'
+msg "multi-word survives"  "feat: add the login form" 'git commit -m "feat: add the login form"'
+msg "first -m of several"  "feat: x"  'git commit -m "feat: x" -m "body text"'
+msg "no message"           ""         'git commit --amend'
+msg "--amend is not a message" ""     'git commit --amend --no-edit'
+
+reuse() { # reuse <name> <expected-yes|no> <command>
+  git_cmd_scan commit "$3"
+  local got=no
+  git_commit_reuses_message "${GIT_CMD_ARGS[0]}" && got=yes
+  check "$1" "$2" "$got"
+}
+reuse "-C HEAD reuses"                 yes 'git commit -C HEAD'
+reuse "-c HEAD reuses"                 yes 'git commit -c HEAD'
+reuse "--reuse-message reuses"         yes 'git commit --reuse-message=HEAD'
+reuse "plain -m does not reuse"        no  'git commit -m "feat: x"'
+reuse "-c inside the message is data"  no  'git commit -m "wip: pass -c to jq"'
+reuse "git -C before subcommand"       no  'git -C /tmp/r commit -m "feat: x"'
 
 # --- which pushes publish code ------------------------------------------------
 publishes() { # publishes <name> <expected-yes|no> <args>

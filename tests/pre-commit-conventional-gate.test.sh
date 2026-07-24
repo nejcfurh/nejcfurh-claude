@@ -96,6 +96,37 @@ run_case "--git-dir form with bad subject blocked" 2 \
 run_case "--no-pager form with valid subject allowed" 0 \
   'git --no-pager commit -m "feat(auth): add login"'
 
+# Every spelling git accepts for the message. The sed extractors this replaced
+# recognised only -m "…" and -m '…', so each of these extracted no subject and
+# the gate failed open — `-am` especially, which is an everyday form.
+run_case "--message= with bad subject blocked" 2   'git commit --message="added stuff"'
+run_case "--message with bad subject blocked" 2    'git commit --message "added stuff"'
+run_case "-am with bad subject blocked" 2          'git commit -am "added stuff"'
+run_case "bare -m value with bad subject blocked" 2 'git commit -m wip'
+run_case "attached -mvalue with bad subject blocked" 2 'git commit -mwip'
+run_case "attached -amvalue with bad subject blocked" 2 'git commit -amwip'
+
+run_case "--message= with valid subject allowed" 0 'git commit --message="feat(auth): add login"'
+run_case "-am with valid subject allowed" 0        'git commit -am "feat(auth): add login"'
+# An unquoted message cannot contain a space, so it can never be a conventional
+# subject (`feat:x` has no space after the colon) — it must block, not slip by.
+run_case "bare -m value without a space blocked" 2 'git commit -m feat:x'
+
+# `-c`/`-C` reuse an existing message and are exempt — but only as flags. Matching
+# them anywhere in the raw command let a message that merely mentions one skip.
+run_case "-C HEAD reuse exempt" 0                  'git commit -C HEAD'
+run_case "--reuse-message exempt" 0                'git commit --reuse-message=HEAD'
+run_case "message mentioning -c is still checked" 2 'git commit -m "wip: pass -c to jq"'
+run_case "message mentioning -C is still checked" 2 'git commit -m "wip -C"'
+
+# A body must not rescue an invalid subject, and must not break a valid one.
+run_case "multi-line valid subject allowed" 0 'git commit -m "feat: ok
+
+body line"'
+run_case "multi-line invalid subject blocked" 2 'git commit -m "wip
+
+body line"'
+
 # Bypass env var must allow anything through.
 jq -n --arg cmd 'git commit -m "junk"' '{tool_input:{command:$cmd}}' \
   | SKIP_CONVENTIONAL_GATE=1 bash "$SUT" >/dev/null 2>&1

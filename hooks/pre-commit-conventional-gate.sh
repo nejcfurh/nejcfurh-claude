@@ -23,10 +23,11 @@ git_cmd_scan commit "$cmd"
 case "$cmd" in
   *--amend*|*--fixup*|*--squash*|*--allow-empty-message*) exit 0 ;;
 esac
-# -C/-c reuse a message only AFTER the commit subcommand — before it, -C is
-# `git -C <path>` (directory selection) and must not skip the gate.
-after_commit="${cmd#*commit}"
-if printf '%s\n' "$after_commit" | grep -Eq -- '(^|[[:space:]])-[Cc]([[:space:]]|$)'; then
+# -c/-C reuse an existing message only AFTER the commit subcommand — before it,
+# -C is `git -C <path>` (directory selection) and must not skip the gate. Read
+# from the invocation's own arguments, so the flags cannot be matched inside the
+# message text.
+if git_commit_reuses_message "${GIT_CMD_ARGS[0]}"; then
   exit 0
 fi
 
@@ -36,20 +37,7 @@ if printf '%s\n' "$cmd" | grep -q '<<'; then
   # Heredoc message: subject is the first line after the heredoc marker.
   subject=$(printf '%s\n' "$cmd" | awk 'found { print; exit } /<</ { found = 1 }')
 else
-  # First line of the command that carries -m.
-  mline=$(printf '%s\n' "$cmd" | grep -m1 -- '-m' 2>/dev/null)
-  if [ -n "$mline" ]; then
-    # Double-quoted message closed on the same line.
-    subject=$(printf '%s\n' "$mline" | sed -n 's/.*-m[[:space:]]*"\([^"]*\)".*/\1/p')
-    # Single-quoted message closed on the same line.
-    if [ -z "$subject" ]; then
-      subject=$(printf '%s\n' "$mline" | sed -n "s/.*-m[[:space:]]*'\([^']*\)'.*/\1/p")
-    fi
-    # Multi-line quoted message: opening quote only; take the rest of the line.
-    if [ -z "$subject" ]; then
-      subject=$(printf '%s\n' "$mline" | sed -n 's/.*-m[[:space:]]*["'"'"']\(.*\)$/\1/p')
-    fi
-  fi
+  subject=$(git_commit_message "${GIT_CMD_ARGS[0]}")
 fi
 
 # Extraction failed -> never block on a parse failure.
@@ -69,7 +57,9 @@ fi
 {
   echo "Blocked: commit subject does not follow Conventional Commits."
   echo ""
-  echo "  Subject:  $subject"
+  # A body arrives joined onto the subject by the tokenizer; show the head of it
+  # rather than replaying a whole commit message back at the user.
+  echo "  Subject:  $(printf '%s' "$subject" | cut -c1-100)"
   echo "  Expected: <type>(<optional-scope>): <description>"
   echo "  Types:    feat fix refactor perf docs style test build ci chore deps security revert"
   echo "  Example:  feat(auth): add passwordless login"
