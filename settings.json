@@ -103,6 +103,10 @@
       "Bash(rm -fr*)",
       "Bash(rm -Rf*)",
       "Bash(rm -fR*)",
+      "Bash(rm -r -f*)",
+      "Bash(rm -f -r*)",
+      "Bash(rm -R -f*)",
+      "Bash(rm -f -R*)",
       "Bash(sudo *)",
       "Bash(dd *)",
       "Bash(mkfs *)",
@@ -130,9 +134,7 @@
       "Bash(npm publish*)",
       "Bash(rm -r*)",
       "Bash(rm -R*)",
-      "Bash(rm -f*)",
-      "Bash(rm --recursive*)",
-      "Bash(rm --force*)"
+      "Bash(rm --recursive*)"
     ],
     "defaultMode": "auto"
   },
