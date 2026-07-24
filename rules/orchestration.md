@@ -30,9 +30,12 @@ Never spin up a fleet unprompted. A Workflow runs only on explicit opt-in — th
 - **Every node gets a contract** — bounded input passed explicitly (never assumed from a shared window), schema-validated output so the next node consumes it without guessing.
 - **Verify before trusting** — put a skeptic on the edge for any finding that will drive a decision; give diverse verifiers distinct lenses (correctness, security, does-it-reproduce) rather than N identical ones.
 - **Converge every cycle** — loop-until-dry must dedupe against *everything seen*, not just confirmed results, or rejected findings reappear forever.
+- **Constrain nodes that read secrets or permissions** — a node auditing credential/permission config must reason *statically* from the file text. Never prompt it to probe real secret paths (`.vault-token`, `*.pem`, `~/.ssh`) or test whether a deny could be bypassed: that trips the credential-exploration security monitor even when the intent is a benign audit, and taints the run's output.
 - **`isolation: 'worktree'` only when nodes write files in parallel** — a seatbelt for that one topology, not a default tax.
 - **Tier models** — route repetitive extract/classify nodes to a cheaper model; keep the synthesis/adjudication node on the strong one. Omit the override when unsure — nodes inherit the session model.
 
 ## Saved workflows
 
 A good run can be saved for reuse — version-controlled and viewable live with `/workflows`. Built-in workflows resolve by name; a project-local script in `.claude/workflows/` is launched by its **path** (`scriptPath`), not by name in this harness. Global orchestration guidance lives here; a workflow scoped to a single repo lives in that repo's `.claude/workflows/`. Running any saved workflow still requires opt-in. Worked example: `.claude/workflows/config-consistency-audit.js` (fan out over subsystems → verify each finding → synthesize a ranked report).
+
+Don't document a launch or discovery mechanism as working until you've run it once. Name resolution, flags, and auto-discovery vary by harness version — the by-name-vs-by-path split above was learned by a failed launch, not read from docs. State the verified behavior; don't promise the plausible one.
