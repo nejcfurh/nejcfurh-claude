@@ -96,6 +96,22 @@ run_case "deletion push exempt" 0 "$foreign" 'git push origin --delete feat/old'
 run_case "tag push exempt" 0 "$foreign" 'git push origin --tags'
 run_case "non-push command ignored" 0 "$foreign" 'git status'
 
+# Any git-level option before `push` used to make the detection regex miss, so
+# the gate exited 0 and published the foreign commit unchecked.
+run_case "--no-pager push with foreign author blocked" 2 "$foreign" \
+  'git --no-pager push -u origin feat/y'
+run_case "--git-dir push with foreign author blocked" 2 "$foreign" \
+  'git --git-dir=.git --work-tree=. push -u origin feat/y'
+run_case "double-space push with foreign author blocked" 2 "$foreign" \
+  'git  push -u origin feat/y'
+
+# --follow-tags publishes the current branch too, so its commits must be checked.
+run_case "--follow-tags with foreign author blocked" 2 "$foreign" 'git push --follow-tags'
+
+# An exemption on one invocation must not cover the whole command line.
+run_case "exempt tag push then real push blocked" 2 "$foreign" \
+  'git push origin --tags && git push -u origin feat/y'
+
 # Bypass env var must allow anything through.
 jq -n --arg cmd 'git push -u origin feat/y' '{tool_input:{command:$cmd}}' \
   | (cd "$foreign" && SKIP_PUSH_AUTHOR_GATE=1 bash "$SUT") >/dev/null 2>&1

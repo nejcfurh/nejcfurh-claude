@@ -87,6 +87,21 @@ run_case "non-commit command ignored" 0 "$r1" 'git status'
 run_case "git -C secret repo blocked from clean cwd" 2 "$r4" \
   "git -C $r1 commit -m \"feat: x\""
 
+# Git-level options sit between `git` and the subcommand, so the literal
+# substring "git commit" this gate used to fall back to matched none of these —
+# the staged diff went unscanned and the secret entered history.
+run_case "--no-pager form with staged key blocked" 2 "$r1" \
+  'git --no-pager commit -m "feat: x"'
+
+run_case "double-space form with staged key blocked" 2 "$r1" \
+  'git  commit -m "feat: x"'
+
+run_case "-c config form with staged key blocked" 2 "$r1" \
+  'git -c core.pager=cat commit -m "feat: x"'
+
+run_case "--git-dir form with staged key blocked" 2 "$r1" \
+  'git --git-dir=.git --work-tree=. commit -m "feat: x"'
+
 # Bypass env var must allow anything through.
 jq -n --arg cmd 'git commit -m "feat: x"' '{tool_input:{command:$cmd}}' \
   | (cd "$r1" && SKIP_SECRET_GATE=1 bash "$SUT") >/dev/null 2>&1

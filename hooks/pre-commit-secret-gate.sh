@@ -16,36 +16,17 @@ payload=$(cat 2>/dev/null) || exit 0
 [ -n "$payload" ] || exit 0
 
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
-# Match both `git commit …` and `git -C <path> commit …` — the -C form has no
-# literal "git commit" substring and would otherwise bypass the gate.
-if ! printf '%s\n' "$cmd" | grep -Eq "git[[:space:]]+-C[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:]]+)[[:space:]]+commit([[:space:]]|\$)"; then
-  case "$cmd" in
-    *"git commit"*) : ;;
-    *) exit 0 ;;
-  esac
-fi
 
-# Resolve the repo the commit actually targets (same approach as the commit
-# branch gate): `git -C <path>` or a leading `cd <path> &&` wins over the cwd.
-target=""
-target=$(printf '%s\n' "$cmd" | sed -n 's/.*git -C[[:space:]]\{1,\}"\([^"]*\)".*/\1/p' | head -1)
-[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n "s/.*git -C[[:space:]]\{1,\}'\([^']*\)'.*/\1/p" | head -1)
-[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n 's/.*git -C[[:space:]]\{1,\}\([^"'"'"'[:space:]][^[:space:]]*\).*/\1/p' | head -1)
-[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n '1s/^cd[[:space:]]\{1,\}"\([^"]*\)"[[:space:]]*&&.*/\1/p')
-[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n "1s/^cd[[:space:]]\{1,\}'\([^']*\)'[[:space:]]*&&.*/\1/p")
-[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n '1s/^cd[[:space:]]\{1,\}\([^[:space:]]*\)[[:space:]]*&&.*/\1/p')
-case "$target" in *'$'*) target="" ;; esac
+# shellcheck source=hooks/git-cmd-lib.sh
+. "$(dirname "$0")/git-cmd-lib.sh"
 
-repo=""
-for cand in "$target" "$PWD" "${CLAUDE_PROJECT_DIR:-}"; do
-  [ -n "$cand" ] || continue
-  [ -d "$cand" ] || continue
-  if git -C "$cand" rev-parse --show-toplevel >/dev/null 2>&1; then
-    repo="$cand"
-    break
-  fi
-done
-[ -n "$repo" ] || exit 0
+git_cmd_scan commit "$cmd"
+[ "$GIT_CMD_N" -gt 0 ] || exit 0
+
+# The first invocation's repo: `git -C <path>` or a leading `cd <path> &&` wins
+# over the cwd. A command committing to two different repos at once scans only
+# the first — the same single-repo scope this gate has always had.
+repo=$(git_cmd_repo "${GIT_CMD_CPATH[0]}" "$cmd") || exit 0
 
 block() { # block <details…>
   "$(dirname "$0")/record-gate-block.sh" "pre-commit-secret-gate" "$payload" 2>/dev/null || true

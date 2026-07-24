@@ -86,6 +86,37 @@ run_case "checkout main then commit blocked from feature cwd" 2 "$feat_repo" \
 run_case "checkout -b main then commit still blocked" 2 "$feat_repo" \
   'git checkout -b main && git commit -m "feat: x"'
 
+# -B / -C force-create and check out exactly as -b / -c do. Listing only the
+# lowercase forms made `awk '{print $NF}'` yield the flag itself, which the
+# `-*)` arm discarded — leaving the safe current branch as the prediction.
+run_case "checkout -B main then commit blocked" 2 "$feat_repo" \
+  'git checkout -B main && git commit -m "feat: x"'
+
+run_case "switch -C main then commit blocked" 2 "$feat_repo" \
+  'git switch -C main && git commit -m "feat: x"'
+
+run_case "checkout -B feature then commit allowed" 0 "$main_repo" \
+  'git checkout -B feat/new-thing && git commit -m "feat: x"'
+
+# Git-level options sit between `git` and the subcommand, so the literal
+# substring "git commit" this gate used to fall back to matched none of these.
+run_case "--no-pager commit on main blocked" 2 "$main_repo" \
+  'git --no-pager commit -m "feat: x"'
+
+run_case "double-space commit on main blocked" 2 "$main_repo" \
+  'git  commit -m "feat: x"'
+
+run_case "-c config commit on main blocked" 2 "$main_repo" \
+  'git -c core.pager=cat commit -m "feat: x"'
+
+run_case "--git-dir commit on main blocked" 2 "$main_repo" \
+  'git --git-dir=.git --work-tree=. commit -m "feat: x"'
+
+# The same words inside a quoted argument are data, not a commit — this gate
+# must not block a command that merely mentions one.
+run_case "quoted commit words are not a commit" 0 "$main_repo" \
+  "grep -n 'git commit' hooks/pre-commit-branch-gate.sh"
+
 # Bypass env var must allow anything through.
 jq -n --arg cmd 'git commit -m "x"' '{tool_input:{command:$cmd}}' \
   | (cd "$main_repo" && SKIP_COMMIT_BRANCH_GATE=1 bash "$SUT") >/dev/null 2>&1

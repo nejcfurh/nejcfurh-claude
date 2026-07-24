@@ -88,6 +88,34 @@ run_case "git -C fresh repo allowed from bare cwd" 0 "$bare" \
 run_case "git -C bare repo blocked from fresh cwd" 2 "$fresh" \
   "git -C $bare push origin feat/topic"
 
+# Any git-level option before `push` used to make the detection regex miss and
+# the gate exit 0 — an unverified push of real code.
+run_case "--no-pager push without marker blocked" 2 "$bare" \
+  'git --no-pager push origin feat/topic'
+run_case "--git-dir push without marker blocked" 2 "$bare" \
+  'git --git-dir=.git --work-tree=. push origin feat/topic'
+run_case "double-space push without marker blocked" 2 "$bare" \
+  'git  push origin feat/topic'
+
+# --follow-tags pushes the current branch as well as tags, so it is NOT a
+# tag-only push and must still require a marker.
+run_case "--follow-tags push without marker blocked" 2 "$bare" \
+  'git push --follow-tags'
+run_case "--follow-tags with remote blocked" 2 "$bare" \
+  'git push --follow-tags origin'
+
+# --tags is only exempt when nothing else is being pushed alongside it.
+run_case "--tags with a branch refspec blocked" 2 "$bare" \
+  'git push --tags origin feat/topic'
+
+# An exemption on one invocation must not cover the whole command line.
+run_case "exempt tag push then real push blocked" 2 "$bare" \
+  'git push origin --tags && git push origin feat/topic'
+run_case "delete push then real push blocked" 2 "$bare" \
+  'git push origin --delete feat/old && git push origin feat/topic'
+run_case "two exempt pushes stay exempt" 0 "$bare" \
+  'git push origin --tags && git push origin :feat/old'
+
 # TTL override: a marker older than a tiny TTL is stale.
 jq -n --arg cmd 'git push origin feat/topic' '{tool_input:{command:$cmd}}' \
   | (cd "$stale" && VERIFY_DONE_TTL_MINUTES=1 bash "$SUT") >/dev/null 2>&1

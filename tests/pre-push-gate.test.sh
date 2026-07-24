@@ -114,6 +114,26 @@ run_case "delete flag on continuation line exempt" 0 "$badrepo" 'git push origin
 run_case "quoted --delete is data: real push still gated" 2 "$badrepo" \
   'echo "git push --delete" && git push origin feat/x'
 
+# --- git-level options and multi-push command lines ---------------------------
+# The detection regex tolerated only `-C <path>`, so any other git-level option
+# skipped the suite entirely.
+run_case "--no-pager push runs the suite (blocked)" 2 "$badrepo" \
+  'git --no-pager push origin feat/x'
+run_case "--git-dir push runs the suite (blocked)" 2 "$badrepo" \
+  'git --git-dir=.git --work-tree=. push origin feat/x'
+run_case "double-space push runs the suite (blocked)" 2 "$badrepo" 'git  push origin feat/x'
+
+# --follow-tags publishes the current branch, so the suite must still run.
+run_case "--follow-tags runs the suite (blocked)" 2 "$badrepo" 'git push --follow-tags'
+run_case "--tags with a branch refspec runs the suite (blocked)" 2 "$badrepo" \
+  'git push --tags origin feat/x'
+
+# An exemption on one invocation must not cover the whole command line.
+run_case "exempt tag push then real push still gated" 2 "$badrepo" \
+  'git push origin --tags && git push origin feat/x'
+run_case "two exempt pushes stay exempt" 0 "$badrepo" \
+  'git push origin --tags && git push origin :feat/old'
+
 rm -rf "$bad" "$good" "$empty" "$badrepo" "$neutral"
 
 echo ""

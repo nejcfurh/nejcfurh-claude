@@ -11,65 +11,52 @@ payload=$(cat 2>/dev/null) || exit 0
 [ -n "$payload" ] || exit 0
 
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
-# Match both `git commit …` and `git -C <path> commit …` — the -C form has no
-# literal "git commit" substring and would otherwise bypass the gate.
-if ! printf '%s\n' "$cmd" | grep -Eq "git[[:space:]]+-C[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:]]+)[[:space:]]+commit([[:space:]]|\$)"; then
-  case "$cmd" in
-    *"git commit"*) : ;;
-    *) exit 0 ;;
-  esac
-fi
 
-# Resolve the repo the commit actually TARGETS, not just the session cwd —
-# `git -C <path> commit` and `cd <path> && git commit` operate on a different
-# repo, and gating on the cwd's branch false-blocks legitimate cross-repo work.
-target=""
-# git -C with a double-quoted, single-quoted, or bare path.
-target=$(printf '%s\n' "$cmd" | sed -n 's/.*git -C[[:space:]]\{1,\}"\([^"]*\)".*/\1/p' | head -1)
-[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n "s/.*git -C[[:space:]]\{1,\}'\([^']*\)'.*/\1/p" | head -1)
-[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n 's/.*git -C[[:space:]]\{1,\}\([^"'"'"'[:space:]][^[:space:]]*\).*/\1/p' | head -1)
-# Leading `cd <path> &&` (same quoting variants).
-[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n '1s/^cd[[:space:]]\{1,\}"\([^"]*\)"[[:space:]]*&&.*/\1/p')
-[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n "1s/^cd[[:space:]]\{1,\}'\([^']*\)'[[:space:]]*&&.*/\1/p")
-[ -n "$target" ] || target=$(printf '%s\n' "$cmd" | sed -n '1s/^cd[[:space:]]\{1,\}\([^[:space:]]*\)[[:space:]]*&&.*/\1/p')
-# Unexpanded variables in the extracted path can't be resolved here — ignore.
-case "$target" in *'$'*) target="" ;; esac
+# shellcheck source=hooks/git-cmd-lib.sh
+. "$(dirname "$0")/git-cmd-lib.sh"
 
-repo=""
-for cand in "$target" "$PWD" "${CLAUDE_PROJECT_DIR:-}"; do
-  [ -n "$cand" ] || continue
-  [ -d "$cand" ] || continue
-  if git -C "$cand" rev-parse --show-toplevel >/dev/null 2>&1; then
-    repo="$cand"
-    break
-  fi
-done
-[ -n "$repo" ] || exit 0
-
-branch=$(git -C "$repo" branch --show-current 2>/dev/null)
+# Every `git … commit` in the command, whatever git-level options precede it.
+git_cmd_scan commit "$cmd"
+[ "$GIT_CMD_N" -gt 0 ] || exit 0
 
 # The hook runs BEFORE the command: a compound like `git checkout -b x && git
 # commit …` will not be on branch x yet. Predict the branch at commit time by
 # taking the LAST checkout/switch in the command portion before the commit.
+# -B and -C (force-create) move the branch and check it out exactly as -b and
+# -c do — omitting them let `git checkout -B main && git commit` predict the
+# safe current branch and land on main.
 pre_commit_part="${cmd%%commit*}"
 switched=$(printf '%s\n' "$pre_commit_part" \
-  | grep -oE "git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?(checkout[[:space:]]+-b|switch[[:space:]]+-c|checkout|switch)[[:space:]]+[^[:space:]&;|\"']+" \
+  | grep -oE "git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?(checkout[[:space:]]+-[bB]|switch[[:space:]]+-[cC]|checkout|switch)[[:space:]]+[^[:space:]&;|\"']+" \
   | tail -1 | awk '{print $NF}')
-case "$switched" in
-  -*|.|"") : ;;                      # flags, `checkout .`, nothing found — keep cwd branch
-  *) branch="$switched" ;;
-esac
 
-case "$branch" in
-  main|master)
-    "$(dirname "$0")/record-gate-block.sh" "pre-commit-branch-gate" "$payload" 2>/dev/null || true
-    {
-      echo "Blocked: commits directly to '$branch' are not allowed."
-      echo "Create a feature branch first: git checkout -b <type>/<topic>"
-      echo "Bypass (human-only): '!'-prefix the command, or export SKIP_COMMIT_BRANCH_GATE=1 in your shell."
-    } >&2
-    exit 2
-    ;;
-esac
+block() { # block <branch>
+  "$(dirname "$0")/record-gate-block.sh" "pre-commit-branch-gate" "$payload" 2>/dev/null || true
+  {
+    echo "Blocked: commits directly to '$1' are not allowed."
+    echo "Create a feature branch first: git checkout -b <type>/<topic>"
+    echo "Bypass (human-only): '!'-prefix the command, or export SKIP_COMMIT_BRANCH_GATE=1 in your shell."
+  } >&2
+  exit 2
+}
+
+# Each invocation may target a different repo (`git -C <path> commit`), so
+# resolve and check them all rather than only the first.
+i=0
+while [ "$i" -lt "$GIT_CMD_N" ]; do
+  cpath="${GIT_CMD_CPATH[$i]}"
+  i=$((i + 1))
+
+  repo=$(git_cmd_repo "$cpath" "$cmd") || continue
+  branch=$(git -C "$repo" branch --show-current 2>/dev/null)
+  case "$switched" in
+    -*|.|"") : ;;                    # flags, `checkout .`, nothing found — keep cwd branch
+    *) branch="$switched" ;;
+  esac
+
+  case "$branch" in
+    main|master) block "$branch" ;;
+  esac
+done
 
 exit 0
