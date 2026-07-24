@@ -15,7 +15,12 @@ cd "$(mktemp -d "${TMPDIR:-/tmp}/hooktest-cwd.XXXXXX")" || exit 1
 # own location and writes git config into it (the settings.json strip filter), so
 # pointing the suite at the real clone made every test run mutate the developer's
 # .git/config — the environment coupling rules/tests.md forbids.
-REPO_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-repo.XXXXXX")
+# Canonicalised via cd+pwd, exactly as setup.sh derives its own REPO_DIR. A
+# TMPDIR with a trailing slash — which the GitHub macOS runner sets — makes
+# mktemp return a path with a DOUBLE slash; setup.sh's cd+pwd collapses it, and
+# the readlink comparisons below then fail against the raw mktemp string. That is
+# what made this suite pass locally and fail on CI macOS.
+REPO_ROOT=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/hooktest-repo.XXXXXX")" && pwd)
 tar -C "$SOURCE_REPO" -cf - \
   CLAUDE.md settings.json rules skills agents hooks scripts \
   | tar -C "$REPO_ROOT" -xf -
