@@ -145,4 +145,5 @@ fi
 
 echo
 echo "Done. Restart Claude Code sessions to pick up settings changes."
-echo "Machine-local overrides go in $CLAUDE_DIR/settings.local.json (never symlinked)."
+echo "Machine-local env/permission overrides go in $CLAUDE_DIR/settings.json —"
+echo "$CLAUDE_DIR/settings.local.json is NOT loaded (that variant is project-scoped only)."

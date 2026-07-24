@@ -10,7 +10,7 @@ When goals conflict: **quality > consistency > efficiency > speed**. Shipped bug
 
 1. **Understand first**: before choosing an approach, check how similar problems are already solved in the codebase — grep for existing patterns, read neighboring files. Follow established conventions over personal preference.
 2. **Align when it matters**: for non-trivial or ambiguous work, plan before implementing. For large features or architectural decisions, use `/grill` to stress-test the plan question by question. For quick fixes, a short stated plan is enough.
-3. **Implement with gates**: typecheck and tests run continuously (hooks enforce this). Follow `/build` discipline for multi-step plans: small increments, commit atomically, no drive-by refactors.
+3. **Implement with gates**: run typecheck and tests yourself after each increment — that is the implementer's job, not a hook's. Hooks enforce them at the publish boundary (`gh pr create`, `git push`); only formatting runs on edit. Follow `/build` discipline for multi-step plans: small increments, commit atomically, no drive-by refactors.
 4. **Verify before done**: run `/verify-done` before pushing — it discovers and runs exactly what CI runs. UI changes additionally get browser/simulator-level verification via the `verify-frontend-change` skill. Never push without all checks passing.
 
 Trivial bypass: typos, single-line fixes, version bumps, config tweaks — skip straight to implementation.

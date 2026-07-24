@@ -8,8 +8,10 @@
 # Context size is read from the transcript: the prompt-token usage of the
 # last main-chain assistant message (input + cache reads + cache writes).
 # The window size is NOT in the transcript — default 200000; sessions on a
-# 1M-context model should export CONTEXT_WINDOW_TOKENS=1000000 (settings
-# env or settings.local.json). Threshold override: CONTEXT_NUDGE_PERCENT.
+# 1M-context model should set CONTEXT_WINDOW_TOKENS=1000000 in the `env` block of
+# ~/.claude/settings.json. NOT settings.local.json: Claude Code reads that variant
+# at project scope only, so a value put there is silently ignored and this hook
+# nudges at 100k — 10% of the real window. Threshold: CONTEXT_NUDGE_PERCENT.
 
 set -u
 
