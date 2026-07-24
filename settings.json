@@ -151,21 +151,9 @@
           },
           {
             "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-git-state-refresh.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(gh pr *)",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-pr-test-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(gh pr create *)",
-            "timeout": 480
-          },
-          {
-            "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-merge-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
+            "command": "HOOK=\"$HOME/.claude/hooks/gh-gate-dispatch.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
             "if": "Bash(gh *)",
-            "timeout": 10
+            "timeout": 480
           }
         ]
       }
