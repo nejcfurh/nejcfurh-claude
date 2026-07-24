@@ -41,7 +41,7 @@ done
 
 # Resolve the repo that push targets: `git -C <path>` or a leading
 # `cd <path> &&` wins over the cwd.
-repo=$(git_cmd_repo "${GIT_CMD_CPATH[$pub_idx]}" "$cmd") || exit 0
+repo=$(git_cmd_repo "${GIT_CMD_CPATH[$pub_idx]}") || exit 0
 
 me=$(git -C "$repo" config user.email 2>/dev/null)
 [ -n "$me" ] || exit 0

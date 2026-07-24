@@ -41,7 +41,7 @@ done
 # Resolve the repo that push targets: `git -C <path>` or a leading
 # `cd <path> &&` wins over the cwd. An unresolvable repo is tolerated here —
 # the package-manager search below falls back to $PWD.
-repo=$(git_cmd_repo "${GIT_CMD_CPATH[$pub_idx]}" "$cmd") || repo=""
+repo=$(git_cmd_repo "${GIT_CMD_CPATH[$pub_idx]}") || repo=""
 
 # A fresh /verify-done READY marker already certifies these exact checks in
 # the checkout being pushed — verify-done runs what CI runs, any edit deletes

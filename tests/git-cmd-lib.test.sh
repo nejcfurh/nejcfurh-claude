@@ -65,6 +65,40 @@ count "commit then push counted once each" push   1 'git commit -m "feat: x" && 
 count "backslash continuation is one push" push   1 'git push \
   origin main'
 
+# --- shell grouping keeps the command word reachable --------------------------
+# Regression: with ( ) { } treated as ordinary characters, the first token of
+# `(git commit -m x)` was "(git" and of `{ git commit; }` was "{" — neither
+# equals "git", so all of these slipped past every gate.
+count "subshell commit detected"          commit 1 '(git commit -m "x")'
+count "subshell no-arg commit detected"   commit 1 '(git commit)'
+count "command substitution detected"     commit 1 'x=$(git commit -m "x")'
+count "brace group detected"              commit 1 '{ git commit -m "x"; }'
+count "subshell push detected"            push   1 '(git push origin main)'
+count "nested groups detected"            push   1 '( { git push origin main; } )'
+count "grouping chars in quotes are data" commit 0 'echo "(git commit -m x)"'
+
+# --- cd context ----------------------------------------------------------------
+git_cmd_scan commit 'cd /tmp/repo && git commit -m "x"'
+check "leading cd becomes the cpath" "/tmp/repo" "${GIT_CMD_CPATH[0]}"
+
+git_cmd_scan commit '(cd /tmp/repo && git commit -m "x")'
+check "cd inside a subshell becomes the cpath" "/tmp/repo" "${GIT_CMD_CPATH[0]}"
+
+git_cmd_scan commit 'cd "/tmp/my repo" && git commit -m "x"'
+check "quoted cd path keeps its space" "/tmp/my repo" "${GIT_CMD_CPATH[0]}"
+
+git_cmd_scan commit 'make build && cd /tmp/repo && git commit -m "x"'
+check "cd after another command still counts" "/tmp/repo" "${GIT_CMD_CPATH[0]}"
+
+# A cd inside a group must not apply after the group closes: treating it as
+# still in effect would judge the later commit against the wrong repo — a false
+# ALLOW, strictly worse than the missed cd this feature fixes.
+git_cmd_scan commit '(cd /tmp/repo && git status); git commit -m "x"'
+check "cd does not leak out of the group" "" "${GIT_CMD_CPATH[0]}"
+
+git_cmd_scan commit 'cd /tmp/a && git -C /tmp/b commit -m "x"'
+check "-C wins over the cd context" "/tmp/b" "${GIT_CMD_CPATH[0]}"
+
 # --- -C / --git-dir path extraction ------------------------------------------
 git_cmd_scan commit 'git -C /tmp/repo commit -m "feat: x"'
 check "bare -C path extracted" "/tmp/repo" "${GIT_CMD_CPATH[0]}"

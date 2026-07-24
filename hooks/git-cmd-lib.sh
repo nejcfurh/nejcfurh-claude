@@ -19,11 +19,19 @@
 # and command substitution (`$(git push)`) are not resolved — the same residuals
 # pre-git-meta-gate.sh documents.
 
-# Emit one line per token, prefixed "T", plus a bare "S" line at each command
-# separator found OUTSIDE quotes. A character state machine is the only way to
-# know whether a `;` or the word `git` is code or data — the substring matches
-# this replaces could not tell, which is why a commit message mentioning
-# "git push" used to put a command through the push gates.
+# Emit one line per token, prefixed "T", plus a marker line at each command
+# separator found OUTSIDE quotes: "S" for ; & | newline, "O" where a subshell or
+# group opens ( or {, "R" where one closes ) or }. A character state machine is
+# the only way to know whether a `;` or the word `git` is code or data — the
+# substring matches this replaces could not tell, which is why a commit message
+# mentioning "git push" used to put a command through the push gates.
+#
+# Grouping characters are separators so the command word is reachable: without
+# that, `(git commit -m x)` tokenizes its first word as "(git", `$(git push)` as
+# "$(git", and `{ git commit; }` starts with "{" — none of which equal "git", so
+# all three slipped past every gate. The cost is that an UNQUOTED brace or paren
+# inside an argument splits it (`--format=%(refname)`); that garbles args for
+# subcommands the gates do not parse, and never hides a command word.
 _git_cmd_tokenize() {
   awk '
     BEGIN { RS = "\001" }
@@ -39,6 +47,14 @@ _git_cmd_tokenize() {
           if (c == "\n" || c == ";" || c == "&" || c == "|") {
             if (have) { print "T" tok; tok = ""; have = 0 }
             print "S"; continue
+          }
+          if (c == "(" || c == "{") {
+            if (have) { print "T" tok; tok = ""; have = 0 }
+            print "O"; continue
+          }
+          if (c == ")" || c == "}") {
+            if (have) { print "T" tok; tok = ""; have = 0 }
+            print "R"; continue
           }
           tok = tok c; have = 1; continue
         }
@@ -56,9 +72,11 @@ _git_cmd_tokenize() {
 }
 
 # Inspect one segment's tokens and record it when it is `git … <want> …`.
-_git_cmd_segment() { # _git_cmd_segment <want> <token…>
-  local want="$1"
-  shift
+# <cwd> is the directory a preceding `cd` put this segment in, used when the
+# invocation names no -C/--git-dir of its own.
+_git_cmd_segment() { # _git_cmd_segment <want> <cwd> <token…>
+  local want="$1" cwd="$2"
+  shift 2
 
   # Leading env assignments and command wrappers precede the command word.
   while [ "$#" -gt 0 ]; do
@@ -87,6 +105,7 @@ _git_cmd_segment() { # _git_cmd_segment <want> <token…>
       *)
         # First bareword after the git-level options is the subcommand.
         if [ "$tok" = "$want" ]; then
+          [ -n "$cpath" ] || cpath="$cwd"
           # shellcheck disable=SC2034  # read by the sourcing gate, not here
           GIT_CMD_CPATH[$GIT_CMD_N]="$cpath"
           # shellcheck disable=SC2034
@@ -112,20 +131,39 @@ git_cmd_scan() { # git_cmd_scan <subcommand> <command-string>
   GIT_CMD_ARGS=()
 
   local -a toks=()
+  # `cd <path> &&` moves the directory the following commands run in, so a git
+  # invocation naming no -C inherits it. The stack scopes that to the group it
+  # happened in: without it, `(cd other && git status); git commit` would judge
+  # the commit against `other` — a false ALLOW, worse than the missed cd it fixes.
+  local -a cdstack=()
+  local cdctx="" n
   # Heredoc rather than a pipe: the loop must run in THIS shell so the globals
   # above survive it.
   while IFS= read -r line; do
     case "$line" in
-      S)
-        [ "${#toks[@]}" -eq 0 ] || _git_cmd_segment "$want" "${toks[@]}"
-        toks=() ;;
-      T*)
-        toks[${#toks[@]}]="${line#T}" ;;
+      T*) toks[${#toks[@]}]="${line#T}"; continue ;;
+    esac
+    if [ "${#toks[@]}" -gt 0 ]; then
+      _git_cmd_segment "$want" "$cdctx" "${toks[@]}"
+      if [ "${toks[0]}" = "cd" ] && [ -n "${toks[1]:-}" ]; then
+        cdctx="${toks[1]}"
+      fi
+      toks=()
+    fi
+    case "$line" in
+      O) cdstack[${#cdstack[@]}]="$cdctx" ;;
+      R)
+        n=${#cdstack[@]}
+        if [ "$n" -gt 0 ]; then
+          cdctx="${cdstack[$((n - 1))]}"
+          unset "cdstack[$((n - 1))]"
+        fi
+        ;;
     esac
   done <<EOF
 $(printf '%s' "$cmdstr" | _git_cmd_tokenize)
 EOF
-  [ "${#toks[@]}" -eq 0 ] || _git_cmd_segment "$want" "${toks[@]}"
+  [ "${#toks[@]}" -eq 0 ] || _git_cmd_segment "$want" "$cdctx" "${toks[@]}"
   return 0
 }
 
@@ -133,13 +171,8 @@ EOF
 # `cd <path> &&`, else the session cwd, else the project dir. Prints the path;
 # returns 1 when none of them is a git repo, which every gate treats as
 # "cannot determine" and never blocks on.
-git_cmd_repo() { # git_cmd_repo <cpath> <command-string>
-  local target="$1" cmdstr="$2" cand
-  if [ -z "$target" ]; then
-    target=$(printf '%s\n' "$cmdstr" | sed -n '1s/^cd[[:space:]]\{1,\}"\([^"]*\)"[[:space:]]*&&.*/\1/p')
-    [ -n "$target" ] || target=$(printf '%s\n' "$cmdstr" | sed -n "1s/^cd[[:space:]]\{1,\}'\([^']*\)'[[:space:]]*&&.*/\1/p")
-    [ -n "$target" ] || target=$(printf '%s\n' "$cmdstr" | sed -n '1s/^cd[[:space:]]\{1,\}\([^[:space:]]*\)[[:space:]]*&&.*/\1/p')
-  fi
+git_cmd_repo() { # git_cmd_repo <cpath>
+  local target="$1" cand
   # An unexpanded variable in the path cannot be resolved here.
   case "$target" in *'$'*) target="" ;; esac
 

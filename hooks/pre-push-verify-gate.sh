@@ -40,7 +40,7 @@ done
 
 # Resolve the repo that push targets: `git -C <path>` or a leading
 # `cd <path> &&` wins over the cwd.
-repo=$(git_cmd_repo "${GIT_CMD_CPATH[$pub_idx]}" "$cmd") || exit 0
+repo=$(git_cmd_repo "${GIT_CMD_CPATH[$pub_idx]}") || exit 0
 
 git_dir=$(git -C "$repo" rev-parse --absolute-git-dir 2>/dev/null) || exit 0
 [ -n "$git_dir" ] || exit 0
