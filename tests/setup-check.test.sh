@@ -17,9 +17,17 @@ cd "$(mktemp -d "${TMPDIR:-/tmp}/hooktest-cwd.XXXXXX")" || exit 1
 # .git/config — the environment coupling rules/tests.md forbids.
 REPO_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-repo.XXXXXX")
 tar -C "$SOURCE_REPO" -cf - \
-  CLAUDE.md settings.json rules skills agents hooks scripts 2>/dev/null \
+  CLAUDE.md settings.json rules skills agents hooks scripts \
   | tar -C "$REPO_ROOT" -xf -
-git -C "$REPO_ROOT" init -q 2>/dev/null
+git -C "$REPO_ROOT" init -q
+# A partially copied fixture must abort, not produce mystery failures later: the
+# assertions below all read as "setup.sh misbehaved" when the truth is a bad copy.
+for required in CLAUDE.md settings.json rules skills agents hooks scripts/setup.sh; do
+  [ -e "$REPO_ROOT/$required" ] || {
+    echo "FATAL: repo fixture incomplete — $required missing after copy" >&2
+    exit 1
+  }
+done
 SUT="$REPO_ROOT/scripts/setup.sh"
 
 pass=0
