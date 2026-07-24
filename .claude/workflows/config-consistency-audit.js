@@ -81,7 +81,10 @@ const DIMENSIONS = [
     prompt:
       `${PREAMBLE}\nSubsystem: settings.json permissions (allow/deny). Deny beats allow everywhere. ` +
       `Flag allow rules fully shadowed by a broader deny (dead allows), redundant/overlapping rules, ` +
-      `and any deny/allow that contradicts the "Secret-read boundary" intent documented in README.md.`,
+      `and any deny/allow that contradicts the "Secret-read boundary" intent documented in README.md.\n` +
+      `Reason statically from the settings.json text only. Do NOT run glob/picomatch tests against real ` +
+      `credential paths (.vault-token, *.pem, ~/.ssh, etc.) or probe whether a credential deny could be ` +
+      `bypassed — that trips the security monitor and is out of scope for a consistency audit.`,
   },
   {
     key: 'skill-agent-integrity',

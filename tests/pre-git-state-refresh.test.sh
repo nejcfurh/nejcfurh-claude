@@ -114,6 +114,27 @@ else
 fi
 rm -rf "$repo" "$stub" "$cache"
 
+# --- direct gh-pr wiring resolves the checkout from payload.cwd -------------
+# Wired directly for `gh pr *`, this hook is not moved to the Bash tool's
+# checkout by the dispatcher. It must resolve the repo from payload.cwd, not
+# the process cwd — otherwise a worktree gh-pr flow reports the wrong branch's
+# PR. Start the hook in a repo on `main`, point payload.cwd at a second repo on
+# `feat/worktree`, and assert the emitted branch is the payload.cwd one.
+wrongrepo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+rightrepo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+stub=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+cache=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+printf '#!/bin/bash\nexit 1\n' > "$stub/gh"
+chmod +x "$stub/gh"
+(cd "$wrongrepo" && git init -q -b main && git commit -q --allow-empty -m init)
+(cd "$rightrepo" && git init -q -b feat/worktree && git commit -q --allow-empty -m init)
+out=$(jq -n --arg cmd 'gh pr view' --arg cwd "$rightrepo" \
+    '{tool_input:{command:$cmd},cwd:$cwd}' \
+  | (cd "$wrongrepo" && PATH="$stub:$PATH" PR_STATE_CACHE_DIR="$cache" bash "$SUT") 2>/dev/null)
+check "gh pr resolves branch from payload.cwd, not the process cwd" \
+  "branch=feat/worktree no-open-pr" "$out"
+rm -rf "$wrongrepo" "$rightrepo" "$stub" "$cache"
+
 echo ""
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]

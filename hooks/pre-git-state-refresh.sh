@@ -27,6 +27,17 @@ case "$cmd" in
     ;;
 esac
 
+# On the direct `gh pr *` wiring this hook is NOT routed through the git
+# dispatcher, so nothing has moved us to the checkout the Bash tool is in —
+# the payload's cwd is the only signal (same reason as pre-pr-test-gate.sh).
+# Without this, a worktree gh-pr flow resolves the wrong checkout's branch and
+# the advisory [pr-state] line reports a stale PR. For git commands the
+# dispatcher has already cd'd here, so this is a harmless no-op.
+payload_cwd=$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null)
+if [ -n "$payload_cwd" ] && [ -d "$payload_cwd" ]; then
+  cd "$payload_cwd" 2>/dev/null || true
+fi
+
 # Resolve the repo: cwd first, then the project dir.
 repo=""
 if git -C "$PWD" rev-parse --show-toplevel >/dev/null 2>&1; then

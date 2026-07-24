@@ -35,4 +35,4 @@ Never spin up a fleet unprompted. A Workflow runs only on explicit opt-in — th
 
 ## Saved workflows
 
-A good run can be saved for reuse — version-controlled, re-runnable by name, viewable live with `/workflows`. Global orchestration guidance lives here; a workflow scoped to a single repo lives in that repo's `.claude/workflows/`. Running any saved workflow still requires opt-in. Worked example: `.claude/workflows/config-consistency-audit.js` (fan out over subsystems → verify each finding → synthesize a ranked report).
+A good run can be saved for reuse — version-controlled and viewable live with `/workflows`. Built-in workflows resolve by name; a project-local script in `.claude/workflows/` is launched by its **path** (`scriptPath`), not by name in this harness. Global orchestration guidance lives here; a workflow scoped to a single repo lives in that repo's `.claude/workflows/`. Running any saved workflow still requires opt-in. Worked example: `.claude/workflows/config-consistency-audit.js` (fan out over subsystems → verify each finding → synthesize a ranked report).
