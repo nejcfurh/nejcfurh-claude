@@ -15,6 +15,8 @@ When goals conflict: **quality > consistency > efficiency > speed**. Shipped bug
 
 Trivial bypass: typos, single-line fixes, version bumps, config tweaks — skip straight to implementation.
 
+Model per phase: steps 1–2 run on Fable 5, steps 3–4 on Opus 5 (1M context). Route subagents and workflow nodes accordingly; flag the session-level switch at the plan/implement boundary, since only `/model` can make it. See `rules/orchestration.md`.
+
 ## Loops
 
 - For tasks with a verifiable finish line, prefer `/goal` with deterministic stop criteria and a turn cap — e.g. `/goal all /verify-done checks pass, stop after 5 tries`.
