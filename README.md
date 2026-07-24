@@ -29,7 +29,7 @@ Gate prerequisites: **`jq` is required** — every git gate parses its hook payl
 | Path | Contents |
 | --- | --- |
 | `CLAUDE.md` | Core global rules: priority order, workflow, loops, behavioral rules, security, environment |
-| `rules/` | Auto-loaded conventions: communication, comments, git, typescript, tests, engineering principles, context7 |
+| `rules/` | Auto-loaded conventions: communication, comments, git, typescript, tests, engineering principles, context7, orchestration |
 | `skills/` | Workflow: `grill`, `build`, `verify-done`, `ship`, `debug`, `test`, `prune`, `spec`, `review-pr`, `address-pr-comment`, `commit`, `pr`, `rebase`, `handoff`, `verify-frontend-change`, `retro` · Docs: `context7-mcp`, `find-docs`, `review-code` · Design (Emil Kowalski): `emil-design-eng`, `apple-design`, `animation-vocabulary`, `find-animation-opportunities`, `improve-animations`, `review-animations` |
 | `agents/` | Opt-in subagent personas — see [Personas](#personas) |
 | `hooks/` | Full quality gates (see below) |
@@ -69,6 +69,10 @@ or if the same check fails twice for the same root cause — escalate instead.
 ```
 
 Grouping comments by root cause, batching the fixes, and re-verifying before push all happen inside `address-pr-comment` and the push gates — the loop only supplies cadence and budgets.
+
+## Workflows (fan-out orchestration)
+
+The loops above are *temporal* — one head, repeated. A **Workflow** is *spatial* — one wide fan-out within a turn, a fleet of subagents coordinated by a plain-JS script whose control flow costs zero model tokens. `rules/orchestration.md` governs when to reach for one (independent breadth, gated verification, unknown-size discovery) versus a linear pass, and the opt-in it requires — a Workflow never fans out unprompted, since one run can spawn dozens of agents. Repo-scoped example in `.claude/workflows/config-consistency-audit.js`: fan out one agent per subsystem (rules, docs, hooks, permissions, skills/agents) → verify each finding against the files → synthesize a ranked report. Launch it by name, watch it live with `/workflows`.
 
 ## Personas
 
