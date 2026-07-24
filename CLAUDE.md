@@ -40,7 +40,7 @@ Model per phase: steps 1–2 run on Fable 5, steps 3–4 on Opus 5 (1M context).
 
 ## Security
 
-- Never read or process files containing secrets, credentials, API keys, or private keys — `.env*`, `*.pem`, `*.key`, `credentials.json`, `~/.ssh`, `~/.aws`, etc. (backed by `permissions.deny` in settings.json — do not attempt workarounds).
+- Never read or process files containing secrets, credentials, API keys, or private keys — any `.env` variant, `*.pem`, `*.key`, `credentials.json`, `~/.ssh`, `~/.aws`, etc. Treat this as the rule; `permissions.deny` enforces most of it but **enumerates** `.env` filenames rather than wildcarding them (a wildcard would negate the deliberate `.env.example` allows), so an unusual name may not be blocked by tooling. Do not attempt workarounds.
 - If config values are needed for debugging, ask for the non-sensitive parts only.
 - Read the source of any third-party skill, plugin, or agent before installing — skill descriptions and instructions are prompt-injection vectors.
 
