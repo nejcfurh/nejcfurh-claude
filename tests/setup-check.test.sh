@@ -7,9 +7,19 @@
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SOURCE_REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$(mktemp -d "${TMPDIR:-/tmp}/hooktest-cwd.XXXXXX")" || exit 1
+
+# Run a COPY of the repo, never the real one. setup.sh derives REPO_DIR from its
+# own location and writes git config into it (the settings.json strip filter), so
+# pointing the suite at the real clone made every test run mutate the developer's
+# .git/config — the environment coupling rules/tests.md forbids.
+REPO_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-repo.XXXXXX")
+tar -C "$SOURCE_REPO" -cf - \
+  CLAUDE.md settings.json rules skills agents hooks scripts 2>/dev/null \
+  | tar -C "$REPO_ROOT" -xf -
+git -C "$REPO_ROOT" init -q 2>/dev/null
 SUT="$REPO_ROOT/scripts/setup.sh"
 
 pass=0
@@ -68,6 +78,24 @@ run_setup "$tgt" --check >/dev/null 2>&1
 rc=$?
 { [ "$rc" -eq 0 ] && [ -z "$(ls -A "$tgt")" ]; } && rc=0 || rc=1
 check "--check exits 0 and creates nothing" "$rc"
+
+# ...including the target directory itself. Asserting on an EXISTING dir's
+# contents could never catch this: the suite created the target first, so the
+# unguarded `mkdir -p` had nothing left to reveal.
+absent="$tgt/does-not-exist-yet"
+run_setup "$absent" --check >/dev/null 2>&1
+rc=$?
+{ [ "$rc" -eq 0 ] && [ ! -d "$absent" ]; } && rc=0 || rc=1
+check "--check does not create the target directory" "$rc"
+
+# The strip filter needs jq; skipping it silently let the per-machine .model key
+# reach a commit. Without jq the run must say so.
+nojq2=$(make_nojq_bin)
+tgt_nojq=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-tgt.XXXXXX")
+out=$(CLAUDE_CONFIG_DIR="$tgt_nojq" PATH="$nojq2" bash "$SUT" --allow-insecure-no-jq 2>&1)
+case "$out" in *"strip filter was NOT installed"*) rc=0 ;; *) rc=1 ;; esac
+check "no jq warns that the strip filter was skipped" "$rc"
+rm -rf "$tgt_nojq" "$nojq2"
 
 # Apply links every repo item into the target.
 out=$(run_setup "$tgt" 2>&1)

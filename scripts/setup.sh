@@ -55,7 +55,10 @@ ITEMS=(
   "scripts"
 )
 
-mkdir -p "$CLAUDE_DIR"
+# --check is a dry run: it must not create the target either. This was the one
+# unguarded mutation, so `CLAUDE_CONFIG_DIR=~/.cluade setup.sh --check` left a
+# real directory behind on a typo.
+[ "$CHECK" -eq 1 ] || mkdir -p "$CLAUDE_DIR"
 
 link_item() {
   local name="$1"
@@ -119,6 +122,14 @@ if [ "$CHECK" -eq 0 ] && command -v jq >/dev/null 2>&1; then
   git -C "$REPO_DIR" config filter.strip-ephemeral-state.clean \
     '[ -x scripts/strip-ephemeral-state.sh ] && exec scripts/strip-ephemeral-state.sh || exec cat' || true
   git -C "$REPO_DIR" config filter.strip-ephemeral-state.smudge cat || true
+elif [ "$CHECK" -eq 0 ]; then
+  # git treats an undefined filter as a silent no-op, so skipping this quietly
+  # meant the per-machine .model key got committed and every other machine hit a
+  # perpetually dirty settings.json. Say so instead.
+  echo
+  echo "WARNING: jq not found, so the settings.json strip filter was NOT installed."
+  echo "  Per-machine runtime state (.model) will show up as a diff and can be committed."
+  echo "  Install jq and re-run this script to configure it."
 fi
 
 # Refactoring UI skills are installed from their source repo at setup time
