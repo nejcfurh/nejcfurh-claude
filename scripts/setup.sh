@@ -105,9 +105,19 @@ done
 # state (Claude Code rewrites it into the symlinked settings.json on every
 # /model), so tracking it means a perpetually dirty file; set it with /model
 # or in settings.local.json instead.
+#
+# The driver is a script, not an inline `jq … || cat`: git pipes the file to the
+# filter, so jq consumes stdin before it fails and the inline fallback has
+# nothing left to replay — that staged a 0-byte settings.json, silently, whenever
+# the file held a rebase conflict. See scripts/strip-ephemeral-state.sh.
+#
+# Path is repo-relative because git runs clean filters from the top of the
+# working tree, so moving this clone does not break the driver. The -x guard
+# keeps `git add settings.json` working on commits that predate the script
+# (bisect, older branches), where it degrades to a pass-through.
 if [ "$CHECK" -eq 0 ] && command -v jq >/dev/null 2>&1; then
   git -C "$REPO_DIR" config filter.strip-ephemeral-state.clean \
-    'jq "del(.feedbackSurveyState) | del(.model)" 2>/dev/null || cat' || true
+    '[ -x scripts/strip-ephemeral-state.sh ] && exec scripts/strip-ephemeral-state.sh || exec cat' || true
   git -C "$REPO_DIR" config filter.strip-ephemeral-state.smudge cat || true
 fi
 
