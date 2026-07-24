@@ -187,6 +187,60 @@ git_cmd_repo() { # git_cmd_repo <cpath>
   return 1
 }
 
+# The commits one `git push` invocation would publish, one SHA per line.
+#
+# The gates used to compare the verify marker against `git rev-parse HEAD` and
+# scan `HEAD --not --remotes` for foreign authors, regardless of what the command
+# actually pushed. From a checkout of feat/a, `git push origin other` published a
+# never-verified — and never author-checked — branch with the gates satisfied by
+# HEAD. Resolve the SOURCE side of each refspec instead.
+#
+# Empty output means undeterminable; callers fall back to HEAD and never block on
+# it. Subshell body so `set -f` cannot leak (a refspec may contain *).
+git_push_source_shas() ( # git_push_source_shas <args-of-one-push> <repo>
+  set -f
+  args="$1"
+  repo="$2"
+  seen_remote=0
+  refspecs=""
+  push_all=0
+  skip_next=0
+  for tok in $args; do
+    if [ "$skip_next" = 1 ]; then skip_next=0; continue; fi
+    case "$tok" in
+      --all|--mirror|--branches) push_all=1 ;;
+      -o|--push-option|--repo|--receive-pack|--exec) skip_next=1 ;;
+      --*=*) : ;;
+      -*) : ;;
+      *) if [ "$seen_remote" -eq 0 ]; then seen_remote=1; else refspecs="$refspecs $tok"; fi ;;
+    esac
+  done
+
+  # --all/--mirror publish every local branch, so every branch tip counts.
+  if [ "$push_all" -eq 1 ]; then
+    git -C "$repo" for-each-ref --format='%(objectname)' refs/heads 2>/dev/null
+    exit 0
+  fi
+
+  # Bare `git push` or `git push <remote>`: the current branch.
+  if [ -z "$refspecs" ]; then
+    git -C "$repo" rev-parse --verify --quiet HEAD 2>/dev/null
+    exit 0
+  fi
+
+  for rs in $refspecs; do
+    rs="${rs#+}"
+    case "$rs" in
+      :*) continue ;;              # deletion publishes nothing
+      refs/tags/*) continue ;;     # tag ref, not a branch of code
+    esac
+    src="${rs%%:*}"                # src of src:dst; the whole spec when no colon
+    [ -n "$src" ] || continue
+    git -C "$repo" rev-parse --verify --quiet "${src}^{commit}" 2>/dev/null
+  done
+  exit 0
+)
+
 # Does one `git push` invocation publish new code? Deletion-only pushes and
 # tag-only pushes do not. `--follow-tags` DOES: it pushes the current branch
 # plus its reachable annotated tags — treating it as tag-only let a default-branch

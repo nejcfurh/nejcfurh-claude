@@ -55,12 +55,21 @@ else
   # Bind the pass to the exact commit: /verify-done writes the verified HEAD
   # as the marker's first line, so a marker recorded for an earlier commit
   # cannot certify a push of a later one (rebase/amend/extra commit).
+  #
+  # Compare against what this push PUBLISHES, not HEAD: `git push origin other`
+  # from a verified feat/a checkout used to satisfy the gate on HEAD while
+  # publishing a never-verified branch. Every pushed tip must be the marked one.
   marker_head=$(head -n1 "$marker" 2>/dev/null | tr -d '[:space:]')
-  cur_head=$(git -C "$repo" rev-parse HEAD 2>/dev/null)
-  if [ -n "$marker_head" ] && [ -n "$cur_head" ] && [ "$marker_head" = "$cur_head" ]; then
-    exit 0
+  pushed=$(git_push_source_shas "${GIT_CMD_ARGS[$pub_idx]}" "$repo")
+  [ -n "$pushed" ] || pushed=$(git -C "$repo" rev-parse HEAD 2>/dev/null)
+  if [ -n "$marker_head" ] && [ -n "$pushed" ]; then
+    all_marked=1
+    for sha in $pushed; do
+      [ "$sha" = "$marker_head" ] || all_marked=0
+    done
+    [ "$all_marked" -eq 1 ] && exit 0
   fi
-  reason="does not match the current commit — HEAD moved since the pass"
+  reason="does not cover the commit(s) this push would publish"
 fi
 
 "$(dirname "$0")/record-gate-block.sh" "pre-push-verify-gate" "$payload" 2>/dev/null || true

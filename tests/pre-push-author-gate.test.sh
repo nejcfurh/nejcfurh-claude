@@ -108,6 +108,23 @@ run_case "double-space push with foreign author blocked" 2 "$foreign" \
 # --follow-tags publishes the current branch too, so its commits must be checked.
 run_case "--follow-tags with foreign author blocked" 2 "$foreign" 'git push --follow-tags'
 
+# The gate must scan the ref being PUSHED, not HEAD. A foreign commit parked on
+# another branch used to publish unchecked from a clean checkout.
+crossref=$(make_repo)
+git -C "$crossref" checkout -q -b feat/clean
+git -C "$crossref" commit -q --allow-empty -m "feat: mine"
+git -C "$crossref" checkout -q -b feat/dirty
+GIT_AUTHOR_NAME=other GIT_AUTHOR_EMAIL=other@example.com \
+  git -C "$crossref" commit -q --allow-empty -m "fixture junk"
+git -C "$crossref" checkout -q feat/clean
+run_case "foreign commit on another branch blocked" 2 "$crossref" \
+  'git push origin feat/dirty'
+run_case "explicit refspec of the foreign branch blocked" 2 "$crossref" \
+  'git push origin feat/dirty:feat/dirty'
+run_case "clean branch from the same checkout allowed" 0 "$crossref" \
+  'git push origin feat/clean'
+run_case "--all covering the foreign branch blocked" 2 "$crossref" 'git push --all origin'
+
 # An exemption on one invocation must not cover the whole command line.
 run_case "exempt tag push then real push blocked" 2 "$foreign" \
   'git push origin --tags && git push -u origin feat/y'

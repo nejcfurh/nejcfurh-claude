@@ -52,8 +52,22 @@ me=$(git -C "$repo" config user.email 2>/dev/null)
 # be the user's own. No remote refs at all -> undeterminable, never block.
 git -C "$repo" for-each-ref --count=1 refs/remotes | grep -q . || exit 0
 
-foreign=$(git -C "$repo" log --format='%h %ae  %s' HEAD --not --remotes 2>/dev/null \
-  | awk -v me="$me" 'BEGIN { IGNORECASE = 0 } { if (tolower($2) != tolower(me)) print }')
+# Scan the refs this push PUBLISHES, not HEAD: `git push origin other` from a
+# feat/a checkout used to scan feat/a's commits while publishing other's.
+pushed=$(git_push_source_shas "${GIT_CMD_ARGS[$pub_idx]}" "$repo")
+[ -n "$pushed" ] || pushed=$(git -C "$repo" rev-parse HEAD 2>/dev/null)
+[ -n "$pushed" ] || exit 0
+
+foreign=""
+for sha in $pushed; do
+  found=$(git -C "$repo" log --format='%h %ae  %s' "$sha" --not --remotes 2>/dev/null \
+    | awk -v me="$me" 'BEGIN { IGNORECASE = 0 } { if (tolower($2) != tolower(me)) print }')
+  [ -n "$found" ] || continue
+  foreign="$foreign$found
+"
+done
+# One commit can be reachable from several pushed tips — report it once.
+foreign=$(printf '%s' "$foreign" | grep -v '^$' | sort -u)
 [ -n "$foreign" ] || exit 0
 
 count=$(printf '%s\n' "$foreign" | wc -l | tr -d '[:space:]')
