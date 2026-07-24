@@ -1,4 +1,15 @@
-#!/usr/bin/env bash
+#!/bin/sh
+# POSIX sh, not bash: nothing here needs bash, and where /bin/sh is dash this
+# starts measurably faster. On macOS /bin/sh IS bash 3.2, so it changes nothing
+# there — measured 24.1ms via sh vs 25.6ms via bash.
+#
+# Cost of this filter: ~24ms, against ~4ms for the inline `jq || cat` it replaced.
+# That is not a hot path. git only runs a clean filter when it has to re-hash the
+# file, so the stat cache absorbs it: `git status` measured 9.4ms with this driver
+# vs 10.6ms with the old one, and 10.8ms right after the mtime was bumped. The
+# real cost is one ~24ms hit the first time git re-reads settings.json after
+# Claude Code rewrites it. Buffering is not optional — see below.
+#
 # git clean filter for settings.json: strips the runtime state Claude Code
 # rewrites into the file (.feedbackSurveyState and .model, which change on every
 # /model) so it never surfaces as a diff. Reads the file on stdin, writes the

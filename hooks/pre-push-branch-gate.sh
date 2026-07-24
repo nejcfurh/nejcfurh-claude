@@ -48,7 +48,7 @@ while [ "$i" -lt "$GIT_CMD_N" ]; do
 
   # Resolve the repo this push targets: `git -C <path>` or a leading
   # `cd <path> &&` wins over the cwd. Undeterminable -> cannot judge, skip.
-  repo=$(git_cmd_repo "$cpath" "$cmd") || continue
+  repo=$(git_cmd_repo "$cpath") || continue
 
   # The repo's default branch: origin/HEAD first, then well-known names.
   default=$(git -C "$repo" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')

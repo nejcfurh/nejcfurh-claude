@@ -65,6 +65,40 @@ count "commit then push counted once each" push   1 'git commit -m "feat: x" && 
 count "backslash continuation is one push" push   1 'git push \
   origin main'
 
+# --- shell grouping keeps the command word reachable --------------------------
+# Regression: with ( ) { } treated as ordinary characters, the first token of
+# `(git commit -m x)` was "(git" and of `{ git commit; }` was "{" — neither
+# equals "git", so all of these slipped past every gate.
+count "subshell commit detected"          commit 1 '(git commit -m "x")'
+count "subshell no-arg commit detected"   commit 1 '(git commit)'
+count "command substitution detected"     commit 1 'x=$(git commit -m "x")'
+count "brace group detected"              commit 1 '{ git commit -m "x"; }'
+count "subshell push detected"            push   1 '(git push origin main)'
+count "nested groups detected"            push   1 '( { git push origin main; } )'
+count "grouping chars in quotes are data" commit 0 'echo "(git commit -m x)"'
+
+# --- cd context ----------------------------------------------------------------
+git_cmd_scan commit 'cd /tmp/repo && git commit -m "x"'
+check "leading cd becomes the cpath" "/tmp/repo" "${GIT_CMD_CPATH[0]}"
+
+git_cmd_scan commit '(cd /tmp/repo && git commit -m "x")'
+check "cd inside a subshell becomes the cpath" "/tmp/repo" "${GIT_CMD_CPATH[0]}"
+
+git_cmd_scan commit 'cd "/tmp/my repo" && git commit -m "x"'
+check "quoted cd path keeps its space" "/tmp/my repo" "${GIT_CMD_CPATH[0]}"
+
+git_cmd_scan commit 'make build && cd /tmp/repo && git commit -m "x"'
+check "cd after another command still counts" "/tmp/repo" "${GIT_CMD_CPATH[0]}"
+
+# A cd inside a group must not apply after the group closes: treating it as
+# still in effect would judge the later commit against the wrong repo — a false
+# ALLOW, strictly worse than the missed cd this feature fixes.
+git_cmd_scan commit '(cd /tmp/repo && git status); git commit -m "x"'
+check "cd does not leak out of the group" "" "${GIT_CMD_CPATH[0]}"
+
+git_cmd_scan commit 'cd /tmp/a && git -C /tmp/b commit -m "x"'
+check "-C wins over the cd context" "/tmp/b" "${GIT_CMD_CPATH[0]}"
+
 # --- -C / --git-dir path extraction ------------------------------------------
 git_cmd_scan commit 'git -C /tmp/repo commit -m "feat: x"'
 check "bare -C path extracted" "/tmp/repo" "${GIT_CMD_CPATH[0]}"
@@ -86,8 +120,46 @@ check "per-invocation cpath: first" "" "${GIT_CMD_CPATH[0]}"
 check "per-invocation cpath: second" "/tmp/other" "${GIT_CMD_CPATH[1]}"
 
 # --- arguments after the subcommand ------------------------------------------
+# Args are newline-joined so a multi-word value keeps its boundary; rendered
+# with spaces here only to keep the expectation readable.
 git_cmd_scan push 'git --no-pager push --force-with-lease origin feat/x'
-check "args exclude git-level options" "--force-with-lease origin feat/x" "${GIT_CMD_ARGS[0]}"
+check "args exclude git-level options" "--force-with-lease origin feat/x" \
+  "$(printf '%s' "${GIT_CMD_ARGS[0]}" | tr '\n' ' ')"
+
+git_cmd_scan commit 'git commit -m "feat: add the login form" --no-verify'
+check "a multi-word arg stays one token" "3" \
+  "$(printf '%s\n' "${GIT_CMD_ARGS[0]}" | wc -l | tr -d ' ')"
+
+# --- commit message extraction -------------------------------------------------
+msg() { # msg <name> <expected> <command>
+  git_cmd_scan commit "$3"
+  check "$1" "$2" "$(git_commit_message "${GIT_CMD_ARGS[0]}")"
+}
+msg "-m quoted"            "feat: x"  'git commit -m "feat: x"'
+msg "-m single-quoted"     "feat: x"  "git commit -m 'feat: x'"
+msg "-m bare word"         "wip"      'git commit -m wip'
+msg "-mvalue attached"     "wip"      'git commit -mwip'
+msg "-am combined"         "feat: x"  'git commit -am "feat: x"'
+msg "-amvalue attached"    "wip"      'git commit -amwip'
+msg "--message="           "feat: x"  'git commit --message="feat: x"'
+msg "--message separate"   "feat: x"  'git commit --message "feat: x"'
+msg "multi-word survives"  "feat: add the login form" 'git commit -m "feat: add the login form"'
+msg "first -m of several"  "feat: x"  'git commit -m "feat: x" -m "body text"'
+msg "no message"           ""         'git commit --amend'
+msg "--amend is not a message" ""     'git commit --amend --no-edit'
+
+reuse() { # reuse <name> <expected-yes|no> <command>
+  git_cmd_scan commit "$3"
+  local got=no
+  git_commit_reuses_message "${GIT_CMD_ARGS[0]}" && got=yes
+  check "$1" "$2" "$got"
+}
+reuse "-C HEAD reuses"                 yes 'git commit -C HEAD'
+reuse "-c HEAD reuses"                 yes 'git commit -c HEAD'
+reuse "--reuse-message reuses"         yes 'git commit --reuse-message=HEAD'
+reuse "plain -m does not reuse"        no  'git commit -m "feat: x"'
+reuse "-c inside the message is data"  no  'git commit -m "wip: pass -c to jq"'
+reuse "git -C before subcommand"       no  'git -C /tmp/r commit -m "feat: x"'
 
 # --- which pushes publish code ------------------------------------------------
 publishes() { # publishes <name> <expected-yes|no> <args>

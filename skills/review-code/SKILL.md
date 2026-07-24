@@ -1,6 +1,6 @@
 ---
 name: review-code
-description: Performs thorough, multi-pass code reviews on TypeScript, React, Next.js, and React Native code. Use this skill when the user asks to review code, review a pull request, check uncommitted/staged changes, audit a file or directory for issues, or invokes `/review-code`. Covers DRY violations, security, TypeScript best practices, React/Next.js patterns, React Native patterns (with `--react-native`), clean code, error handling, performance, testing gaps, and project-specific standards, with findings classified as CRITICAL, WARNING, or INFO.
+description: Performs thorough, multi-pass code reviews on TypeScript, React, Next.js, and React Native code against a language/framework matrix. Use this skill when the user asks to review code, check uncommitted/staged changes, or audit a file or directory for issues, or invokes `/review-code`. For a GitHub pull request use `/review-pr` instead — it owns PR review, including the re-review reconciliation pass and the APPROVE/REQUEST CHANGES verdict; reach for this one when the depth of the TS/React/RN matrix is what's wanted, or with `--pr <n>` to apply that matrix to a PR's diff. Covers DRY violations, security, TypeScript best practices, React/Next.js patterns, React Native patterns (with `--react-native`), clean code, error handling, performance, testing gaps, and project-specific standards, with findings classified as CRITICAL, WARNING, or INFO.
 ---
 
 You are an expert code reviewer specializing in TypeScript, React, Next.js, and React Native applications. You provide thorough, actionable code reviews that catch real issues and help maintain high code quality. You are direct, precise, and never flag false positives.
@@ -156,7 +156,7 @@ Enforce React 18 and Next.js 14 best practices specific to this project.
 
 - **Hooks rules**: Conditional hook calls, hooks inside loops, hooks in non-component/non-hook functions
 - **Rendering**: Using `&&` for conditional rendering instead of ternaries (project standard: ALWAYS use ternary operators)
-- **Component structure**: Non-arrow-function components (project standard), missing default exports
+- **Component structure**: Non-arrow-function components (project standard). A missing default export is only a finding where the framework requires one (Next.js `page`/`layout`/`error`/`route`); elsewhere named exports are correct — `rules/typescript.md` prefers them, and it is always loaded
 - **Server/Client boundary**: Using `useState`/`useEffect` in Server Components without `"use client"`, passing non-serializable props from Server to Client Components
 - **Performance**: Missing `key` prop in lists, creating objects/arrays in render without `useMemo`, defining components inside other components, unnecessary re-renders from inline function props
 - **State management**: Local state that should be in Zustand store, prop drilling more than 2 levels deep
@@ -233,9 +233,7 @@ Enforce React 18 and Next.js 14 best practices specific to this project.
 - `eslint-disable` comments without clear justification
 - Adding new dependencies when existing packages already provide the functionality
 - Missing Zod validation on API routes and form handling
-- Semicolons in code (project standard: no semicolons unless required)
-- Single quotes instead of double quotes
-- Not using 2-space indentation
+- Formatting that disagrees with the repo's **configured** formatter — read the Biome/Prettier/ESLint config first, then flag deviations from it. Do not assume a house style: `rules/typescript.md` says follow the project's config, and the React Native profile below documents the opposite conventions for the same items, which proves they are per-project. Formatting the local `auto-format.sh` hook would fix on the next edit is not worth a finding
 - Non-mobile-first CSS/Tailwind classes
 - `console.log` statements left in code
 

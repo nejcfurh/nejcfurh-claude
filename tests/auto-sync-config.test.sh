@@ -56,18 +56,40 @@ check "behind+clean+main pulls (said: ${out:-<silent>})" "$rc"
 check "clone HEAD matches upstream after pull" "$rc"
 rm -rf "$upstream" "$clone" "$home"
 
-# Incoming update touches executable config (hooks/) -> notice, no auto-merge.
+# Incoming update touches a non-passive path -> notice, no auto-merge. The hold
+# is an allowlist: as a denylist of hooks/, scripts/ and settings.json it let
+# every other executable path through, and /verify-done then ran the new code.
+holds_update() { # holds_update <path> <label>
+  local path="$1" label="$2" before out rc
+  make_pair
+  home=$(fresh_home)
+  (cd "$upstream" && mkdir -p "$(dirname "$path")" \
+    && printf '#!/usr/bin/env bash\n' > "$path" \
+    && git add "$path" && git commit -q -m "chore: add $path")
+  before=$(git -C "$clone" rev-parse HEAD)
+  out=$(HOME="$home" CLAUDE_CONFIG_REPO="$clone" bash "$SUT")
+  case "$out" in *"outside the passive set"*) rc=0 ;; *) rc=1 ;; esac
+  check "$label gets a manual-review notice (said: ${out:-<silent>})" "$rc"
+  [ "$(git -C "$clone" rev-parse HEAD)" = "$before" ] && rc=0 || rc=1
+  check "$label leaves clone untouched" "$rc"
+  rm -rf "$upstream" "$clone" "$home"
+}
+
+holds_update "hooks/evil.sh"                     "hooks/ update"
+holds_update "scripts/evil.sh"                   "scripts/ update"
+holds_update "tests/evil.test.sh"                "tests/ update"
+holds_update ".claude/workflows/evil.js"         "workflow-script update"
+holds_update "settings.json"                     "settings.json update"
+
+# A passive-only update must still fast-forward, or the hold is useless.
 make_pair
 home=$(fresh_home)
-(cd "$upstream" && mkdir -p hooks \
-  && printf '#!/usr/bin/env bash\n' > hooks/evil.sh \
-  && git add hooks/evil.sh && git commit -q -m "chore: add hook")
-before=$(git -C "$clone" rev-parse HEAD)
+(cd "$upstream" && mkdir -p rules skills/foo \
+  && echo "rule" > rules/new.md && echo "skill" > skills/foo/SKILL.md \
+  && git add rules skills && git commit -q -m "docs: passive only")
 out=$(HOME="$home" CLAUDE_CONFIG_REPO="$clone" bash "$SUT")
-case "$out" in *"executable config"*) rc=0 ;; *) rc=1 ;; esac
-check "executable-config update gets a manual-review notice (said: ${out:-<silent>})" "$rc"
-[ "$(git -C "$clone" rev-parse HEAD)" = "$before" ] && rc=0 || rc=1
-check "executable-config update leaves clone untouched" "$rc"
+case "$out" in *"updated: pulled"*) rc=0 ;; *) rc=1 ;; esac
+check "rules/ and skills/ update still fast-forwards (said: ${out:-<silent>})" "$rc"
 rm -rf "$upstream" "$clone" "$home"
 
 # Behind but dirty -> notice, no merge.

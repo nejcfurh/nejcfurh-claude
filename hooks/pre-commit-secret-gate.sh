@@ -26,7 +26,7 @@ git_cmd_scan commit "$cmd"
 # The first invocation's repo: `git -C <path>` or a leading `cd <path> &&` wins
 # over the cwd. A command committing to two different repos at once scans only
 # the first — the same single-repo scope this gate has always had.
-repo=$(git_cmd_repo "${GIT_CMD_CPATH[0]}" "$cmd") || exit 0
+repo=$(git_cmd_repo "${GIT_CMD_CPATH[0]}") || exit 0
 
 block() { # block <details…>
   "$(dirname "$0")/record-gate-block.sh" "pre-commit-secret-gate" "$payload" 2>/dev/null || true

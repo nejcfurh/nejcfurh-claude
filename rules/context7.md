@@ -10,3 +10,7 @@ When working with libraries, frameworks, or APIs — use Context7 MCP to fetch c
 2. Pick the best match — prefer exact names and version-specific IDs when a version is mentioned
 3. Call `query-docs` with the selected library ID and the user's question
 4. Answer using the fetched docs — include code examples and cite the version
+
+If the MCP server is unavailable or returns nothing, fall back to the `/find-docs`
+skill, which reaches the same source through the Context7 CLI. That skill is
+manual-invocation only, so this rule stays the single automatic path.

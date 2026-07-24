@@ -47,7 +47,7 @@ while [ "$i" -lt "$GIT_CMD_N" ]; do
   cpath="${GIT_CMD_CPATH[$i]}"
   i=$((i + 1))
 
-  repo=$(git_cmd_repo "$cpath" "$cmd") || continue
+  repo=$(git_cmd_repo "$cpath") || continue
   branch=$(git -C "$repo" branch --show-current 2>/dev/null)
   case "$switched" in
     -*|.|"") : ;;                    # flags, `checkout .`, nothing found — keep cwd branch

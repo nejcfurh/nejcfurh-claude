@@ -7,9 +7,32 @@
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SOURCE_REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$(mktemp -d "${TMPDIR:-/tmp}/hooktest-cwd.XXXXXX")" || exit 1
+
+# Run a COPY of the repo, never the real one. setup.sh derives REPO_DIR from its
+# own location and writes git config into it (the settings.json strip filter), so
+# pointing the suite at the real clone made every test run mutate the developer's
+# .git/config — the environment coupling rules/tests.md forbids.
+# Canonicalised via cd+pwd, exactly as setup.sh derives its own REPO_DIR. A
+# TMPDIR with a trailing slash — which the GitHub macOS runner sets — makes
+# mktemp return a path with a DOUBLE slash; setup.sh's cd+pwd collapses it, and
+# the readlink comparisons below then fail against the raw mktemp string. That is
+# what made this suite pass locally and fail on CI macOS.
+REPO_ROOT=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/hooktest-repo.XXXXXX")" && pwd)
+tar -C "$SOURCE_REPO" -cf - \
+  CLAUDE.md settings.json rules skills agents hooks scripts \
+  | tar -C "$REPO_ROOT" -xf -
+git -C "$REPO_ROOT" init -q
+# A partially copied fixture must abort, not produce mystery failures later: the
+# assertions below all read as "setup.sh misbehaved" when the truth is a bad copy.
+for required in CLAUDE.md settings.json rules skills agents hooks scripts/setup.sh; do
+  [ -e "$REPO_ROOT/$required" ] || {
+    echo "FATAL: repo fixture incomplete — $required missing after copy" >&2
+    exit 1
+  }
+done
 SUT="$REPO_ROOT/scripts/setup.sh"
 
 pass=0
@@ -60,7 +83,16 @@ rc=$?
 { [ "$rc" -eq 0 ] && [ -L "$tgt1/CLAUDE.md" ]; } && rc=0 || rc=1
 check "--allow-insecure-no-jq proceeds without jq" "$rc"
 rm -rf "$tgt1"
-rm -rf "$nojq"
+
+# Same jq-less bin, reused: building it symlinks every entry in /bin and /usr/bin,
+# so a second one is a few thousand needless syscalls under the concurrent runner.
+# The strip filter needs jq; skipping it silently let the per-machine .model key
+# reach a commit, so the run must say so.
+tgt_nojq=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-tgt.XXXXXX")
+out=$(CLAUDE_CONFIG_DIR="$tgt_nojq" PATH="$nojq" bash "$SUT" --allow-insecure-no-jq 2>&1)
+case "$out" in *"strip filter was NOT installed"*) rc=0 ;; *) rc=1 ;; esac
+check "no jq warns that the strip filter was skipped" "$rc"
+rm -rf "$tgt_nojq" "$nojq"
 
 # --check is a true dry run: nothing appears in the target.
 tgt=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-tgt.XXXXXX")
@@ -68,6 +100,16 @@ run_setup "$tgt" --check >/dev/null 2>&1
 rc=$?
 { [ "$rc" -eq 0 ] && [ -z "$(ls -A "$tgt")" ]; } && rc=0 || rc=1
 check "--check exits 0 and creates nothing" "$rc"
+
+# ...including the target directory itself. Asserting on an EXISTING dir's
+# contents could never catch this: the suite created the target first, so the
+# unguarded `mkdir -p` had nothing left to reveal.
+absent="$tgt/does-not-exist-yet"
+run_setup "$absent" --check >/dev/null 2>&1
+rc=$?
+{ [ "$rc" -eq 0 ] && [ ! -d "$absent" ]; } && rc=0 || rc=1
+check "--check does not create the target directory" "$rc"
+
 
 # Apply links every repo item into the target.
 out=$(run_setup "$tgt" 2>&1)

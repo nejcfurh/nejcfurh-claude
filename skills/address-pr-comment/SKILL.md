@@ -34,7 +34,12 @@ git fetch origin "$BRANCH" --quiet
 git status --short                       # check for pre-existing local changes
 ```
 
-- If the checkout is **clean**, sync to the pushed PR state: `git reset --hard origin/$BRANCH`.
+- If the checkout is **clean**, sync to the pushed PR state by fast-forward:
+  `git fetch origin "$BRANCH" && git merge --ff-only "origin/$BRANCH"`. If the
+  fast-forward fails, local commits exist that the PR does not have — stop and
+  report rather than discarding them. (Do not reach for `git reset --hard`: it is
+  deny-blocked in `settings.json` and forbidden by `rules/git-conventions.md`, and
+  a `git status --short`-clean checkout can still hold unpushed commits.)
 - If it has **unrelated uncommitted changes**, do NOT discard them — stop and ask.
 
 ## Step 3 — Wait for the automated review, if the repo has one
@@ -114,13 +119,15 @@ Run integration/build only if you touched code that warrants it.
 
 ## Step 7 — Commit + push + report
 
-**One** commit to the same remote branch, following the repo's commit-message
-conventions (ticket prefix if the branch carries one) and naming what it
-addresses (bot findings, human requests, CI fixes):
+**One** commit to the same remote branch. The subject needs a conventional type —
+`pre-commit-conventional-gate` blocks anything else — with the ticket in the scope
+if the branch carries one. Name what the commit addresses (bot findings, human
+requests, CI fixes):
 
 ```bash
 git add -A
-git commit -m "<prefix>: address review — <e.g. fix X (bot), guard Y (reviewer @name)>"
+git commit -m "fix(<ticket-or-area>): address review — <e.g. fix X (bot), guard Y (reviewer @name)>"
+# /verify-done, record the pass, then push as its own command:
 git push
 ```
 

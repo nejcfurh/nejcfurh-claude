@@ -34,4 +34,6 @@ A branch ideally carries one `feat` or `fix` that names its main change, with su
 
 ## Push
 
-Push after committing (`git push`, set upstream if missing) unless the user said commit-only. The push gate runs lint/typecheck/tests/build automatically; if it blocks, fix the failures — don't bypass.
+Push after committing (`git push`, set upstream if missing) unless the user said commit-only.
+
+The push is gated on a fresh `/verify-done` pass, not on the suite running at push time: committing moved HEAD, so any marker recorded earlier no longer matches and `pre-push-verify-gate` blocks with "no fresh /verify-done pass". Run `/verify-done` after the commit, record the pass, then push as its own command. Don't bypass.

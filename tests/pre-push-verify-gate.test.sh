@@ -108,6 +108,21 @@ run_case "--follow-tags with remote blocked" 2 "$bare" \
 run_case "--tags with a branch refspec blocked" 2 "$bare" \
   'git push --tags origin feat/topic'
 
+# The marker certifies ONE commit. Pushing a ref that does not point at it must
+# not be waved through just because HEAD happens to match the marker.
+otherref=$(make_repo)
+write_marker "$otherref"
+git -C "$otherref" branch other
+git -C "$otherref" commit -q --allow-empty -m "unverified work"
+git -C "$otherref" branch -f other HEAD
+git -C "$otherref" checkout -q feat/topic
+git -C "$otherref" reset -q --hard HEAD~1     # HEAD back to the marked commit
+run_case "push of an unmarked branch blocked" 2 "$otherref" 'git push origin other'
+run_case "explicit refspec of an unmarked branch blocked" 2 "$otherref" \
+  'git push origin other:other'
+run_case "push of the marked branch still allowed" 0 "$otherref" 'git push origin feat/topic'
+run_case "--all with an unmarked branch blocked" 2 "$otherref" 'git push --all origin'
+
 # An exemption on one invocation must not cover the whole command line.
 run_case "exempt tag push then real push blocked" 2 "$bare" \
   'git push origin --tags && git push origin feat/topic'

@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: Structured pull-request review with severity-classified findings. Invoke when the user says "review this PR", "code review", or provides a PR number or GitHub PR URL.
+description: Structured pull-request review with severity-classified findings, a re-review reconciliation pass, and an APPROVE/REQUEST CHANGES verdict. Invoke when the user says "review this PR", "code review", or provides a PR number or GitHub PR URL — this skill owns PR review. For uncommitted or staged working-tree changes, or a deep TypeScript/React/React Native audit of specific files, use `/review-code`.
 ---
 
 Review PR: $ARGUMENTS

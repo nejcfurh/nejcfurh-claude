@@ -46,6 +46,9 @@
       "Read(**/.env.test)",
       "Read(**/.env.dev)",
       "Read(**/.env.prod)",
+      "Read(**/.env.preview)",
+      "Read(**/.env.stage)",
+      "Read(**/.envrc)",
       "Read(~/.ssh/**)",
       "Read(~/.gnupg/**)",
       "Read(~/.aws/**)",
@@ -81,6 +84,9 @@
       "Edit(**/.env.test)",
       "Edit(**/.env.dev)",
       "Edit(**/.env.prod)",
+      "Edit(**/.env.preview)",
+      "Edit(**/.env.stage)",
+      "Edit(**/.envrc)",
       "Edit(~/.ssh/**)",
       "Edit(~/.gnupg/**)",
       "Edit(~/.aws/**)",
@@ -93,7 +99,14 @@
       "Edit(**/*.pem)",
       "Edit(**/*.key)",
       "Edit(**/*-key.json)",
-      "Bash(rm -rf *)",
+      "Bash(rm -rf*)",
+      "Bash(rm -fr*)",
+      "Bash(rm -Rf*)",
+      "Bash(rm -fR*)",
+      "Bash(rm -r -f*)",
+      "Bash(rm -f -r*)",
+      "Bash(rm -R -f*)",
+      "Bash(rm -f -R*)",
       "Bash(sudo *)",
       "Bash(dd *)",
       "Bash(mkfs *)",
@@ -117,11 +130,11 @@
       "Bash(*truncate table*)"
     ],
     "ask": [
-      "Bash(git clean -fd *)",
-      "Bash(git clean -f *)",
+      "Bash(git clean*)",
       "Bash(npm publish*)",
-      "Bash(rm -r *)",
-      "Bash(rm -fr *)"
+      "Bash(rm -r*)",
+      "Bash(rm -R*)",
+      "Bash(rm --recursive*)"
     ],
     "defaultMode": "auto"
   },
@@ -138,21 +151,9 @@
           },
           {
             "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-git-state-refresh.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(gh pr *)",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-pr-test-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
-            "if": "Bash(gh pr create *)",
-            "timeout": 120
-          },
-          {
-            "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-merge-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
+            "command": "HOOK=\"$HOME/.claude/hooks/gh-gate-dispatch.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
             "if": "Bash(gh *)",
-            "timeout": 10
+            "timeout": 480
           }
         ]
       }

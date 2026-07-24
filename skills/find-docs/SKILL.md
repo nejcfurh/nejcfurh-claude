@@ -18,8 +18,12 @@ description: >-
   - retrieving setup instructions, examples, or migration guides
   - verifying version-specific behavior or breaking changes
 
-  Prefer this skill whenever documentation accuracy matters or when model
-  knowledge may be outdated.
+  This is the CLI FALLBACK for documentation lookup. The Context7 MCP server is
+  the default path (see rules/context7.md, which always applies, and the
+  pre-allowed mcp__context7__* tools in settings.json) — use it first. Reach for
+  this skill only when the MCP server is unavailable or returns nothing, since it
+  installs a global npm package to fetch the same docs.
+disable-model-invocation: true
 ---
 
 # Documentation Lookup

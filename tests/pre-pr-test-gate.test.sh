@@ -44,6 +44,23 @@ run_case "PR allowed when tests pass" 0 "$passing" 'gh pr create --fill'
 run_case "npm placeholder test script not gated" 0 "$placeholder" 'gh pr create --fill'
 run_case "non-PR command ignored" 0 "$failing" 'gh pr view'
 
+# A suite that never finishes must be decided by the gate, not by the harness
+# killing it — a discarded exit code would open the PR with tests unverified.
+slow=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+printf '{"name":"slow","scripts":{"test":"sleep 30"}}' > "$slow/package.json"
+touch "$slow/package-lock.json"
+jq -n --arg cmd 'gh pr create --fill' '{tool_input:{command:$cmd}}' \
+  | (cd "$slow" && PR_TEST_GATE_TIMEOUT=2 bash "$SUT" >/dev/null 2>&1)
+got=$?
+if [ "$got" -eq 2 ]; then
+  echo "PASS: a suite that outruns the bound blocks (exit 2)"
+  pass=$((pass + 1))
+else
+  echo "FAIL: a suite that outruns the bound blocks — expected exit 2, got $got"
+  fail=$((fail + 1))
+fi
+rm -rf "$slow"
+
 # Bypass env var must allow the PR through.
 jq -n --arg cmd 'gh pr create' '{tool_input:{command:$cmd}}' \
   | (cd "$failing" && SKIP_PR_TEST_GATE=1 bash "$SUT") >/dev/null 2>&1

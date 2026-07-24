@@ -49,13 +49,27 @@ if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
 fi
 
 # Auto-merging executable config would let a compromised origin/main run code on
-# every device unattended. Passive updates (rules, skills, agents, docs)
-# fast-forward; any change under hooks/ or scripts/, or to settings.json, waits
-# for a human to review the diff and merge -- ff-only proves history shape, not
-# that the new code is trusted.
+# every device unattended. ff-only proves history shape, not that the new code is
+# trusted, so only PASSIVE paths auto-merge and everything else waits for a human.
+#
+# This is an allowlist on purpose. As a denylist of hooks/, scripts/ and
+# settings.json it missed every other executable path in the repo — a commit
+# touching only tests/run-all.sh or .claude/workflows/*.js fast-forwarded
+# unattended, and /verify-done then executed it. A new executable directory would
+# have been missed the same way, silently.
 changed=$(git diff --name-only HEAD..origin/main 2>/dev/null)
-if printf '%s\n' "$changed" | grep -Eq '^(hooks/|scripts/|settings\.json$)'; then
-  echo "[config-sync] config repo is $behind commit(s) behind origin/main, but the update changes executable config (hooks/, scripts/, or settings.json) -- review and merge manually: (cd \"$repo\" && git log HEAD..origin/main && git merge --ff-only origin/main)"
+executable_change=0
+while IFS= read -r path; do
+  [ -n "$path" ] || continue
+  case "$path" in
+    rules/*|skills/*|agents/*|docs/*|CLAUDE.md|README.md|NOTICE.md|LICENSE|.gitignore|.gitattributes) : ;;
+    *) executable_change=1; break ;;
+  esac
+done <<EOF
+$changed
+EOF
+if [ "$executable_change" -eq 1 ]; then
+  echo "[config-sync] config repo is $behind commit(s) behind origin/main, but the update touches paths outside the passive set (rules/, skills/, agents/, docs) -- review and merge manually: (cd \"$repo\" && git log HEAD..origin/main && git merge --ff-only origin/main)"
   exit 0
 fi
 

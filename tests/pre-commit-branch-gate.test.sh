@@ -117,6 +117,35 @@ run_case "--git-dir commit on main blocked" 2 "$main_repo" \
 run_case "quoted commit words are not a commit" 0 "$main_repo" \
   "grep -n 'git commit' hooks/pre-commit-branch-gate.sh"
 
+# Shell grouping must not hide the command word. These forms bypassed the gate
+# when ( ) { } were treated as ordinary characters.
+run_case "subshell commit on main blocked" 2 "$main_repo" \
+  '(git commit -m "feat: x")'
+
+run_case "subshell no-arg commit on main blocked" 2 "$main_repo" \
+  '(git commit)'
+
+run_case "command-substituted commit on main blocked" 2 "$main_repo" \
+  'out=$(git commit -m "feat: x")'
+
+run_case "brace-group commit on main blocked" 2 "$main_repo" \
+  '{ git commit -m "feat: x"; }'
+
+# A `cd` anywhere before the commit names the target repo, not just a leading one.
+run_case "subshell cd to feature repo allowed" 0 "$main_repo" \
+  "(cd $feat_repo && git commit -m \"feat: x\")"
+
+run_case "subshell cd to main repo blocked" 2 "$feat_repo" \
+  "(cd $main_repo && git commit -m \"feat: x\")"
+
+run_case "cd after another command still resolves" 0 "$main_repo" \
+  "true && cd $feat_repo && git commit -m \"feat: x\""
+
+# ...but it must stop applying once the group closes, or the later commit would
+# be judged against the wrong repo and let through.
+run_case "cd scoped to its subshell, later commit still gated" 2 "$main_repo" \
+  "(cd $feat_repo && git status); git commit -m \"feat: x\""
+
 # Bypass env var must allow anything through.
 jq -n --arg cmd 'git commit -m "x"' '{tool_input:{command:$cmd}}' \
   | (cd "$main_repo" && SKIP_COMMIT_BRANCH_GATE=1 bash "$SUT") >/dev/null 2>&1

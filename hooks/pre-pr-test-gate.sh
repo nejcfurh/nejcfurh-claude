@@ -110,11 +110,23 @@ while :; do
   d=$(dirname "$d")
 done
 
-out=$(cd "$pkg_dir" && CI=true $pm run test 2>&1)
-if [ $? -ne 0 ]; then
+# Bound the suite inside the hook, below the harness timeout wired in
+# settings.json. Being killed by the harness discards this gate's exit code, so a
+# slow suite could let the PR open unchecked; timing out HERE means the gate still
+# gets to decide, and it decides to block. Same alarm idiom as
+# pre-git-state-refresh.sh.
+test_timeout="${PR_TEST_GATE_TIMEOUT:-420}"
+out=$(cd "$pkg_dir" && CI=true perl -e 'alarm shift @ARGV; exec @ARGV' \
+  "$test_timeout" "$pm" run test 2>&1)
+rc=$?
+if [ "$rc" -ne 0 ]; then
   "$(dirname "$0")/record-gate-block.sh" "pre-pr-test-gate" "$payload" 2>/dev/null || true
   {
-    echo "Blocked: tests must pass before opening a PR."
+    if [ "$rc" -eq 142 ]; then
+      echo "Blocked: tests did not finish within ${test_timeout}s, so they cannot vouch for this PR."
+    else
+      echo "Blocked: tests must pass before opening a PR."
+    fi
     echo "Command: CI=true $pm run test (run in $pkg_dir)"
     echo ""
     printf '%s\n' "$out" | tail -n 40
