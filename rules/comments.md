@@ -1,9 +1,3 @@
----
-paths:
-  - "**/*.{ts,tsx,js,jsx,mjs,cjs}"
-  - "**/*.sh"
----
-
 # Comment Standards
 
 **When to apply:** writing or editing any code file.
