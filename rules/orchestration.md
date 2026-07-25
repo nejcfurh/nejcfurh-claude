@@ -22,19 +22,17 @@ Do **not** reach for one when the steps are a true dependency chain, a single ag
 
 ## Opt-in is mandatory
 
-Never spin up a fleet unprompted. A Workflow runs only on explicit opt-in — the keyword `ultracode`, a direct ask ("use a workflow", "fan out agents"), or a skill that invokes it. Otherwise use a subagent, or describe the workflow and its rough token cost and ask first. This is a cost gate: one run can spawn dozens of agents. The **Cost** rule and the **Loops** budget discipline in CLAUDE.md apply in full — declare max agents up front, no scope expansion, and escalate instead of retrying harder.
+Never spin up a fleet unprompted — this is a cost gate, since one run can spawn dozens of agents. The Workflow tool description enumerates what counts as opt-in; what it does not say is that the **Cost** rule and the **Loops** budget discipline in CLAUDE.md apply in full: declare max agents up front, no scope expansion, escalate instead of retrying harder.
 
-## Topology defaults (once building one)
+## Node discipline
 
-- **`pipeline()` by default; a barrier (`parallel()` between stages) only when a stage needs every prior result at once** — cross-set dedupe, early-exit on the total, a prompt that compares against "the other findings". "Cleaner code" and "the stages feel separate" are not reasons; barrier latency is real, measurable, wasted time.
-- **Every node gets a contract** — bounded input passed explicitly (never assumed from a shared window), schema-validated output so the next node consumes it without guessing.
-- **Verify before trusting** — put a skeptic on the edge for any finding that will drive a decision; give diverse verifiers distinct lenses (correctness, security, does-it-reproduce) rather than N identical ones.
-- **Converge every cycle** — loop-until-dry must dedupe against *everything seen*, not just confirmed results, or rejected findings reappear forever.
+Topology mechanics — barriers, worktree isolation, output schemas, the verify and loop-until-dry patterns — live in the Workflow tool description, which loads only when the tool is in play. Restating them here costs tokens every session and drifts. Only what the tool description omits belongs below:
+
+- **Every node gets a contract** — bounded input passed explicitly, never assumed from a shared window. A node that infers its scope from ambient context silently changes behavior when the caller changes.
 - **Constrain nodes that read secrets or permissions** — a node auditing credential/permission config must reason *statically* from the file text. Never prompt it to probe real secret paths (`.vault-token`, `*.pem`, `~/.ssh`) or test whether a deny could be bypassed: that trips the credential-exploration security monitor even when the intent is a benign audit, and taints the run's output.
 - **A constraint belongs on EVERY node that touches the finding** — finder, verifier, adjudicator, synthesiser. A verifier inherits a list of permission findings and will go probe them to "check" one, tripping the same monitor and tainting the same output; putting the static-only clause only on the finder buys nothing. Write the constraint once as a shared preamble string and interpolate it into every prompt, so a node cannot be added without it.
 - **An audit node never runs the operation it audits** — a node reviewing a git gate reasons from the gate's source and its test suite; it does not fire `git commit` / `git push` / `rm` / `gh pr merge` to see what happens, throwaway repo or not. Executing the guarded operation is how a review run ends up publishing a branch or deleting files, and the gate's own suite already encodes the expected outcomes.
-- **`isolation: 'worktree'` only when nodes write files in parallel** — a seatbelt for that one topology, not a default tax.
-- **Tier models** — route repetitive extract/classify nodes to a cheaper model; keep the synthesis/adjudication node on the strong one. Omit the override when unsure — nodes inherit the session model. Phase routing (below) decides which model counts as "the strong one".
+- **Tier models** — route repetitive extract/classify nodes to a cheaper model; keep the synthesis/adjudication node on the strong one. Phase routing (below) decides which model counts as "the strong one".
 
 ## Model routing by phase
 
