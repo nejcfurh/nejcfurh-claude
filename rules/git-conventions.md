@@ -22,6 +22,7 @@
 - When branching off a protected base (`develop`/`main`) — including via `git worktree add -b <branch> <path> origin/<base>` — don't leave the feature branch tracking the protected branch; unset the upstream (`git branch --unset-upstream`) so a bare `git push` can't target it.
 - Rebase onto the target branch (`git fetch origin main && git rebase origin/main`) before creating a PR.
 - Run `/verify-done` before pushing any branch. (Enforced by hook — a READY verdict records a marker that pushes require; any edit invalidates it. The marker is only minted for a clean tracked tree: checks that passed on a dirty tree get READY TO COMMIT, not push-ready READY.)
+- **Decide the destination of every working-tree change before starting a commit flow.** Push-ready READY requires a clean tracked tree, so deliberately leaving something uncommitted (a borrowed fix from another branch, a local experiment) dead-ends at the gate by construction. Raise the choice — commit it, drop it, or hand the push over — when the user asks to commit, not after the gate refuses.
 - PR descriptions: bullet points in the summary, not prose paragraphs.
 - After pushing new commits to an existing PR, update its title and description (`gh pr edit`) to reflect all changes.
 - If the repo has a PR template, use it.
