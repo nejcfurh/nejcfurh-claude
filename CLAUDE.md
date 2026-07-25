@@ -55,4 +55,4 @@ Model per phase: steps 1–2 run on Fable 5, steps 3–4 on Opus 5 (1M context).
 - macOS, zsh. Stack: TypeScript, React, React Native, Next.js, NestJS, PostgreSQL.
 - Package manager varies per project — detect from the lockfile, never assume npm.
 - Figma MCP is available for design work; Context7 MCP for library docs (see `rules/context7.md`).
-- Custom subagents available for deep domain work: `frontend-staff-engineer`, `backend-staff-engineer`, `cybersecurity-expert`, `database-master`, `product-manager` (MVP scope discipline), `ai-engineer` (LLM features, evals, agent harnesses). Spawn via the Agent tool for substantial work in those domains; skip for trivial changes.
+- Custom subagents live in `agents/` — the harness lists each with its description, so don't restate them here. Spawn via the Agent tool for substantial work in those domains; skip for trivial changes.
