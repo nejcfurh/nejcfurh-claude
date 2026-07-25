@@ -2,11 +2,9 @@
 
 **When to apply:** writing or editing any code file.
 
-## Default
+The baseline is the surrounding code — match its comment density and idiom. What follows are the standing preferences that override that baseline where the two disagree.
 
-If the code is self-explanatory, write no comment. If it carries a hidden constraint, subtle invariant, workaround, or context a future reader can't derive from the surrounding code, write the shortest comment that captures it.
-
-## Allowed: a non-obvious WHY
+## Write a comment for a non-obvious WHY
 
 - A hidden constraint ("must run before X because Y")
 - A subtle invariant ("must be even — modulo math relies on it")
@@ -15,7 +13,7 @@ If the code is self-explanatory, write no comment. If it carries a hidden constr
 
 Prefer one line. Multi-line only when the WHY genuinely needs it.
 
-## Forbidden
+## Leave these out, even where neighbouring code has them
 
 - **WHAT-restating comments** — anything paraphrasing the next line (`// increment counter` above `counter++`).
 - **Ticket / PR / issue references** in comments (`JIRA-123`, `#456`, `Fixes ...`) — these belong in PR descriptions and `git blame`, where they stay accurate.
