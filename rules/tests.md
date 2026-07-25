@@ -1,3 +1,10 @@
+---
+paths:
+  - "**/*.{test,spec}.{ts,tsx,js,jsx}"
+  - "**/*.test.sh"
+  - "tests/**/*"
+---
+
 # Testing Standards
 
 **When to apply:** editing test files (`*.test.ts(x)`, `*.spec.ts(x)`).

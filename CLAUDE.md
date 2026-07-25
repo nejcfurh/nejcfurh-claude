@@ -19,14 +19,10 @@ Model per phase: steps 1–2 run on Fable 5, steps 3–4 on Opus 5 (1M context).
 
 ## Loops
 
-- For tasks with a verifiable finish line, prefer `/goal` with deterministic stop criteria and a turn cap — e.g. `/goal all /verify-done checks pass, stop after 5 tries`.
-- For recurring external checks (PR reviews arriving, CI runs), use `/loop <interval> <prompt>` instead of polling manually or building custom watchers.
-- Loops inherit the same hooks and gates as manual work — verification runs inside every iteration.
-- For long-running work, prefer restarting from a self-contained spec or handoff (fresh context) over grinding through a degraded session — re-feeding the spec beats context rot. `/spec` writes re-runnable specs; `/handoff` compacts a session into one.
-- Before building a scheduled loop or routine, check: the task recurs, an automated check (test/typecheck/build/lint) can reject bad output, and there's a hard stop (turn cap or budget). Miss one → keep it a manual prompt.
-- Every loop declares its budgets up front: max attempts (default 5), zero new dependencies, zero scope expansion. Stop early — escalate instead of retrying harder — when the same root cause survives two distinct fixes, two consecutive iterations fail identically, or an iteration needs a product decision or irreversible action.
+- For tasks with a verifiable finish line, prefer `/goal` with deterministic stop criteria and a turn cap — e.g. `/goal all /verify-done checks pass, stop after 5 tries`. For recurring external checks (PR reviews arriving, CI runs), use `/loop <interval> <prompt>` instead of polling manually or building custom watchers.
+- Every loop declares its budgets up front: max attempts (default 5), zero new dependencies, zero scope expansion.
 - Loops only get machine-checkable work — lint fixes, dependency bumps, CI triage, flaky-test reproduction. Never auth, payments, architecture, or anything where "done" is a judgment call.
-- Scheduled loops keep a state file (e.g. `STATE.md`) recording what's done, in progress, and escalated, so runs resume instead of restarting.
+- Setting one up, or deciding whether to: `/loop-discipline` carries the pre-flight checklist, the escalation triggers, and the state-file requirement.
 
 ## Behavioral rules
 
