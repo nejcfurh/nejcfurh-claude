@@ -10,6 +10,12 @@
 
 Pick by shape, not size. Steps that each read the previous step's output are a line — keep them linear. Steps that don't consume each other's output are independent nodes — that is the only place a Workflow pays off. Litmus test: if you can't draw an arrow where a variable crosses from one step into the next, there is no dependency and the wait is wasted.
 
+## Long-running local processes
+
+Dev servers and other processes meant to outlive a turn should not be harness-tracked background tasks — those get reaped, and the reaper takes anything mid-flight with them (an interrupted GPU job, a half-written build). Launch them detached (`nohup … & disown`) so their lifetime is their own, or hand the user the command to run in their shell.
+
+If one dies unexplained, diagnose before restarting it the same way. A clean shutdown in the log means it was signalled, not that it crashed — and processes dying in pairs points at an external sweep rather than the app. Restarting identically costs the user whatever was in flight a second time.
+
 ## When a Workflow earns its cost
 
 Reach for one only when the work is genuinely wide or needs structural confidence:
