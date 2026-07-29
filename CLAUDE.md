@@ -8,10 +8,12 @@ When goals conflict: **quality > consistency > efficiency > speed**. Shipped bug
 
 ## Workflow
 
-1. **Understand first**: before choosing an approach, check how similar problems are already solved in the codebase — grep for existing patterns, read neighboring files. Follow established conventions over personal preference.
+1. **Understand first**: before choosing an approach, check how similar problems are already solved in the codebase — grep for existing patterns, read neighboring files. Follow established conventions over personal preference. When that search turns up an existing design-system component, asset or helper for the thing being built, it **is** the answer — implement with it. Do not hand it back as one option among alternatives you invented: only one entry on that menu matches the rest of the app, and offering the others invites an inconsistency the user then has to catch in review.
 2. **Align when it matters**: for non-trivial or ambiguous work, plan before implementing. For large features or architectural decisions, use `/grill` to stress-test the plan question by question. For quick fixes, a short stated plan is enough.
 3. **Implement with gates**: run typecheck and tests yourself after each increment — that is the implementer's job, not a hook's. Hooks enforce them at the publish boundary (`gh pr create`, `git push`); only formatting runs on edit. Follow `/build` discipline for multi-step plans: small increments, commit atomically, no drive-by refactors.
 4. **Verify before done**: run `/verify-done` before pushing — it discovers and runs exactly what CI runs. UI changes additionally get browser/simulator-level verification via the `verify-frontend-change` skill. Never push without all checks passing.
+
+A change is a **UI change if it alters what renders**, whatever file it lives in. Layout coordinates, ordering, selection, spacing and thresholds are UI code even when they sit in a pure `.ts` function behind unit tests — those tests confirm the maths matches your intent, never that the intent looks right. Once the app is already running on a simulator or browser this costs one screenshot; skipping it is how a green suite ships a visibly broken screen.
 
 Trivial bypass: typos, single-line fixes, version bumps, config tweaks — skip straight to implementation.
 

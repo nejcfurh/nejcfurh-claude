@@ -16,6 +16,8 @@ Dev servers and other processes meant to outlive a turn should not be harness-tr
 
 If one dies unexplained, diagnose before restarting it the same way. A clean shutdown in the log means it was signalled, not that it crashed — and processes dying in pairs points at an external sweep rather than the app. Restarting identically costs the user whatever was in flight a second time.
 
+Before reporting a service down, check the **port**, not the process name: `lsof -nP -iTCP:<port> -sTCP:LISTEN`, or curl its status endpoint. A `pgrep` for a plausible-looking name is a guess — Metro, Vite and friends run under `node` with argv that rarely contains the word you searched for, so a name miss reads as "not running" and sends the diagnosis down the wrong path entirely.
+
 ## When a Workflow earns its cost
 
 Reach for one only when the work is genuinely wide or needs structural confidence:

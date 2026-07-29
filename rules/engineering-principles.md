@@ -46,6 +46,7 @@ Applies whenever a number decides whether a change is good — perf work, output
 - **Change one variable per measurement.** Two changes measured together give a delta you cannot attribute, and the improvement gets credited to whichever one you were hoping for.
 - **A commit justified by a measurement contains only what was measured.** Bundling an unmeasured change alongside is how a change already measured as *worse* ships anyway.
 - **A measurement that says "worse" is a result, not a setback.** Revert it there and then. Do not carry it forward hoping a later change compensates.
+- **A test that encodes a product judgment is a metric, and gets validated like one.** When an assertion says a *behaviour* is correct ("one result here is the right number"), that claim came from you, not from the code — writing it down does not make it true, it freezes it. Check it against real data first. This is the most dangerous failure mode on the list, because the suite goes green and every later review reads the assertion as the specification.
 
 ## Exploration guard rails
 
