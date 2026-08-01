@@ -34,3 +34,15 @@ For each finding, propose the *cheapest durable fix*, preferring mechanical over
 ## 4. Apply
 
 Present the findings and proposed fixes as a short table (misstep → class → fix → where). On approval, make the edits in the config repo and commit. One retro finding that becomes a hook is worth ten that become paragraphs.
+
+### Write it so it cannot leak
+
+The config repo is shared, outlives any single engagement, and may be public. Everything a retro puts there — rule text, commit message, PR title and body, branch name — must read as generic craft guidance and carry nothing identifying where the lesson came from.
+
+Never write: client, company or product names; ticket identifiers or their prefixes; internal repo, service, environment, table or flag names; links to internal tools; verbatim internal conventions or guidelines; file paths that exist only in that codebase.
+
+Generalize instead — "a client project", "a ticket", "an internal ticket-prefix convention", "a project-specific env file". A finding that needs the original repo named to make sense is not yet a rule.
+
+**Never encode one project's convention into a global rule, gate or hook.** If it only makes sense for one codebase it belongs in that project's own config. Split every finding: the generalized lesson goes to the config repo, the specifics and evidence go to memory, which is per-project and private.
+
+Before committing, grep the staged diff **and** the commit message and PR body for the client's names and ticket pattern. The rule text is usually already clean — the commit message and PR body are where it leaks.
