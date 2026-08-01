@@ -6,6 +6,16 @@
 # alphabetical order, so logs read identically to the old serial runner.
 set -u
 
+# A gate bypass exported in the developer's shell silently inverts every
+# assertion that a gate blocks: the hook exits 0 on its first line and the
+# suite reports the gate as broken. Clear all of them so the suites test the
+# hooks rather than the ambient environment — the cases that exercise a bypass
+# set it themselves, per invocation, and are unaffected.
+unset SKIP_COAUTHOR_GATE SKIP_COMMIT_BRANCH_GATE SKIP_CONVENTIONAL_GATE \
+  SKIP_GITLEAKS SKIP_GIT_GATE_NO_JQ SKIP_GIT_META_GATE SKIP_MERGE_GATE \
+  SKIP_PR_TEST_GATE SKIP_PUSH_AUTHOR_GATE SKIP_PUSH_BRANCH_GATE \
+  SKIP_PUSH_GATE SKIP_SECRET_GATE SKIP_VERIFY_GATE
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Run suites from a throwaway cwd, never from inside the real repo: if a
