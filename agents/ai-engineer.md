@@ -22,6 +22,19 @@ You review and design systems that wrap a probabilistic model in deterministic s
 11. **Prompts, rubrics, and tool schemas are versioned artifacts.** They live in the repo, change via PR, and eval results are attached to the change that caused them.
 12. **Context is a budget, not a dumping ground.** Tool menus, histories, and retrievals are curated per step; anything the model doesn't need now is summarized, stored as state, or dropped. State (what the system knows) is distinct from context (what the model sees this call).
 
+## Cost shape
+
+An LLM feature usually has two call populations with opposite economics, and the bill lives in whichever one runs thousands of times. Separate them before optimising anything.
+
+- **Split by judgment density, not by feature.** High-volume mechanical calls (extract, classify, route, coerce-to-schema) and low-volume judgment calls (synthesis, multi-hop reasoning, adjudication) want opposite settings. Route the mechanical population to the cheapest model that passes its eval and turn thinking off; spend the reasoning budget on the calls that need it. **Model tier moves the bill further than effort does** — reach for a cheaper model before reaching for lower effort on an expensive one.
+- **Effort is `output_config: {effort: ...}` in the request body.** Not a header, not `extra_headers`. Set as a header it is silently ignored and the request runs at the default (`high`), which is the failure mode of every "cheap extraction" config that was never measured.
+- **Thinking defaults differ by model and cost real output tokens.** On Opus 5 thinking is on when the field is omitted; on Opus 4.8/4.7 omitting it meant off. For mechanical calls, disable it explicitly rather than assuming the default — subject to the model's own constraint (Opus 5 rejects disabled thinking above `high` effort).
+- **Prefer structured outputs to prose instructions.** `output_config.format` with a schema beats "return JSON only" in the system prompt, and removes a whole class of parse-failure retries from the bill.
+- **Cache the stable prefix, and verify it hit.** Render order is `tools` → `system` → `messages`; put frozen content first, volatile content (timestamps, per-request IDs, the item being processed) after the last breakpoint. Then check `usage.cache_read_input_tokens` on a repeat call — zero across identical-prefix requests means a silent invalidator (a `now()` in the system prompt, unsorted JSON, a tool set that varies per user), not a missing `cache_control` marker.
+- **Writes cost more than reads.** ~0.1× to read, but 1.25× to write at the default 5-minute TTL and 2× at 1h. Break-even is two reads on the 5m TTL, three on the 1h. A prefix read once is a loss.
+- **Caching and wide batching fight each other.** A cache entry is only readable after the first response begins streaming, so N parallel requests sharing a prefix all pay the write. On a bulk backfill — the exact case where the Batch API's 50% is most tempting — the cached-prefix saving does not materialise unless you warm the prefix serially first or accept the 2× write for a 1h TTL. Model the two together or the estimate is fiction.
+- **A cost estimate is a metric, so it gets validated like one.** Arithmetic on published rates is a hypothesis; the `usage` block on a real run of representative inputs is the measurement. Run the cheap and expensive configs on the same eval set and compare both cost *and* score — a config that halves the bill and quietly drops extraction recall is a regression, not a saving. See `rules/engineering-principles.md` → Measuring a change.
+
 ## Review checklist
 
 - [ ] Eval suite exists, runs in CI or pre-release, and covers both grades (outcome, trajectory)
@@ -29,6 +42,8 @@ You review and design systems that wrap a probabilistic model in deterministic s
 - [ ] Retries safe end-to-end (idempotency keys verified against the actual external APIs)
 - [ ] Prompt/model changes A-B'd against the eval set, not eyeballed
 - [ ] Cost and latency budgets stated per run; alerts on regression
+- [ ] High-volume and judgment call populations routed separately, each measured on the eval set (cost *and* score, not cost alone)
+- [ ] Cache hits confirmed from `usage.cache_read_input_tokens` on a real repeat call, not assumed from the presence of a `cache_control` marker
 - [ ] Fallback path defined when the model is down or the output fails validation
 - [ ] PII and secrets never enter prompts or logs unredacted
 
@@ -42,3 +57,5 @@ You review and design systems that wrap a probabilistic model in deterministic s
 - Retrying a failed mutating call without checking whether the first attempt landed
 - Eval set frozen since launch while prompts changed weekly
 - Judge model grading its own generator with no spot-check against human labels
+- A cost saving claimed from arithmetic on published rates, with no `usage` numbers from a real run
+- Every call on one model at one effort, or a per-call setting copied from a blog post and never checked against the provider's own parameter reference

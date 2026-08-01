@@ -40,9 +40,9 @@ Topology mechanics — barriers, worktree isolation, output schemas, the verify 
 - **Constrain nodes that read secrets or permissions** — a node auditing credential/permission config must reason *statically* from the file text. Never prompt it to probe real secret paths (`.vault-token`, `*.pem`, `~/.ssh`) or test whether a deny could be bypassed: that trips the credential-exploration security monitor even when the intent is a benign audit, and taints the run's output.
 - **A constraint belongs on EVERY node that touches the finding** — finder, verifier, adjudicator, synthesiser. A verifier inherits a list of permission findings and will go probe them to "check" one, tripping the same monitor and tainting the same output; putting the static-only clause only on the finder buys nothing. Write the constraint once as a shared preamble string and interpolate it into every prompt, so a node cannot be added without it.
 - **An audit node never runs the operation it audits** — a node reviewing a git gate reasons from the gate's source and its test suite; it does not fire `git commit` / `git push` / `rm` / `gh pr merge` to see what happens, throwaway repo or not. Executing the guarded operation is how a review run ends up publishing a branch or deleting files, and the gate's own suite already encodes the expected outcomes.
-- **Tier models** — route repetitive extract/classify nodes to a cheaper model; keep the synthesis/adjudication node on the strong one. Phase routing (below) decides which model counts as "the strong one".
+- **Tier by judgment, on two dials** — `model` sets the capability floor, `effort` sets how hard the node works at it. Mechanical nodes (extract, classify, reformat) get a cheap model *and* low effort; the synthesis/adjudication node gets the strong model at high or above. Pull the model dial first: dropping a frontier model to low effort where `haiku` would have passed is the smaller lever, and it reads as cost discipline while leaving most of the bill in place. Phase routing (below) decides which model counts as "the strong one".
 
-## Model routing by phase
+## Model and effort routing
 
 **Planning runs on Fable 5. Coding runs on Opus 5 (1M context).** Planning is understand / spec / grill / design / review-the-approach. Coding is implement / fix / verify. The boundary is the moment a plan is agreed, not the first file edit.
 
@@ -51,6 +51,8 @@ Topology mechanics — barriers, worktree isolation, output schemas, the verify 
 - **Main session** — the session model cannot be changed from inside a turn; only the user's `/model` can (`settings.json` is write-blocked and wouldn't apply mid-session either). So state the switch in one line at the boundary, and pick a boundary where the user is already answering — plan approval, spec sign-off — so it costs no extra turn: "Plan's agreed — `/model` to Opus 5 (1M) before I build." Say it once and continue; don't stall the task on it.
 
 The subagent/node `model` enum is `fable | opus | sonnet | haiku` — a tier, not a context variant. There is no `opus[1m]` value to pass; the 1M-context choice exists only at session level.
+
+**Effort is a narrower surface than model.** `opts.effort` (`low | medium | high | xhigh | max`) exists on **Workflow nodes only**; omit it to inherit the session effort. The **Agent tool has no `effort` parameter** — writing one into an Agent call does nothing, so a subagent that should be cheap gets a cheaper `model` instead. Session effort is the user's to set, same as session model. Treat any advice that routes effort per-subagent, or that describes effort as a prompt-cache key, as describing a different harness than this one until verified here.
 
 ## Saved workflows
 
