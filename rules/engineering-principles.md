@@ -37,6 +37,12 @@ Never accept these shortcuts:
 | TODO without a ticket | Dead code; ticket it or fix it now |
 | Copy-paste with tweaks | Duplication diverges; extract or accept repetition consciously |
 
+## Verifying a change
+
+**A check must be derived independently of the change.** When you verify a bulk edit, a search-and-replace, or a delegated search, build the check from a different starting point than the edit — a different pattern shape, a different layer, or the rendered/deployed output rather than the source you touched. A grep that reuses the fix's own pattern, a test that asserts against the same constant the code maps over, and a delegate's search that pre-filtered out the files in question all share one failure mode: they confirm the assumption instead of testing the result, and they come back green. The check that finds the miss is almost always the one built a different way.
+
+This is worse than an unverified change, because a green check gets reported as fact and is believed. Treat "I verified it" as a claim about the *method*, not the outcome: if the method could not have failed, it did not verify anything.
+
 ## Measuring a change
 
 Applies whenever a number decides whether a change is good — perf work, output quality, anything tuned against a metric rather than a passing test.
