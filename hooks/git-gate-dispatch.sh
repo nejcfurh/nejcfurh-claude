@@ -60,6 +60,15 @@ run_gate() {
 # subcommand gates entirely — check every git command, before routing.
 run_gate pre-git-meta-gate.sh
 
+# Commands that write .git/config fail half-way under the command sandbox, so
+# they are stopped before running rather than diagnosed afterwards. Routed on
+# every subcommand that can carry such a write; the gate parses precisely.
+case "$cmd" in
+  *checkout*|*switch*|*branch*|*push*|*config*|*remote*)
+    run_gate pre-git-sandbox-config-gate.sh
+    ;;
+esac
+
 case "$cmd" in
   *push*)
     run_gate pre-push-branch-gate.sh
