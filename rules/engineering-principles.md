@@ -20,9 +20,24 @@ Before removing or changing existing code, understand why it exists: `git blame`
 
 Catch problems as early as possible: type system > lint > unit tests > integration tests > runtime validation > monitoring. If the type system can catch it, don't write a test for it — fix the types.
 
+## Self-contained fallback and loading states
+
+Anything meant to render before the rest of the page/app has finished loading — a loading spinner, a Suspense/skeleton fallback, a splash screen — must not depend on the assets it exists to cover for. Styling it with the same utility classes or stylesheet used everywhere else is the natural default, and it is wrong specifically here: under a slow connection there is no guarantee the stylesheet (or an animation's keyframes) has loaded by the time the fallback paints, so a stylesheet-dependent fallback can render as an invisible, unstyled element in the one place that can't assume its assets are present. Use inline styles for the properties that matter (colour, dimensions, border) and inline animation (a scoped `<style>` tag with `@keyframes`, not a utility animation class) for anything that must be visible from the very first paint. Once a loading state runs *after* the app has already hydrated and its stylesheet is already loaded, this no longer applies — style it normally.
+
+## Grep before you build, grep before you're done
+
+Two checks belong around every fix that targets a *pattern* rather than a single call site, and both are cheap enough to be no-excuse:
+
+- **Before building:** grep for how the same *class* of problem is already solved elsewhere in the codebase before inventing a new mechanism for it. A codebase that already has an established fix for "this event must survive a page unload" or "this write must be idempotent" is telling you the shape of the fix it expects; building a fresh, undocumented approach next to three existing ones is how a review catches what a search would have.
+- **Before declaring done:** grep the repo for the literal pattern you just fixed, not just the one file you noticed it in. A bug description phrased as "X does Y" is a search query, not just a diagnosis — sibling files (a paired error boundary, a duplicated handler, a copy-pasted route) routinely carry the identical defect, and fixing only the instance that was reported leaves the others live until someone else reports them too.
+
+Both of these are the kind of miss an external review catches trivially and a five-second grep would have caught first.
+
 ## Blast radius on production
 
 Before running or recommending a bulk operation — a backfill, migration loop, or mass API job — against a shared, rate-limited production resource (a live third-party API like Stripe, a DB connection pool), estimate peak load = concurrency × per-item fan-out and keep it a small fraction of the budget so customer-facing traffic isn't starved. Start conservative and ramp; never launch a prod batch at high concurrency. An admin/batch job must never degrade a customer path.
+
+The same check applies below "bulk," not just above it. A single scripted or automated action that creates real records or triggers a real paid API call against shared infrastructure carries the same disclosure obligation as a bulk operation — the trigger is "does this have a real side effect," not "how many iterations." A preview or staging environment the user just stood up for testing is not exempt: it is still shared infrastructure with real downstream effects (database writes, third-party API costs), and "it's just for testing" is not the same as "nobody needs to know this happened." Flag it before the first run, not after several have already landed.
 
 ## Anti-rationalization
 
