@@ -69,6 +69,15 @@ case "$cmd" in
     ;;
 esac
 
+# Moving a checkout onto an existing branch carries uncommitted tracked changes
+# across silently. Runs after the sandbox gate so `checkout -b` under the sandbox
+# still gets the more actionable message; this gate allows -b entirely.
+case "$cmd" in
+  *checkout*|*switch*)
+    run_gate pre-git-branch-switch-gate.sh
+    ;;
+esac
+
 case "$cmd" in
   *push*)
     run_gate pre-push-branch-gate.sh
