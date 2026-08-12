@@ -58,6 +58,8 @@ Never accept these shortcuts:
 
 This is worse than an unverified change, because a green check gets reported as fact and is believed. Treat "I verified it" as a claim about the *method*, not the outcome: if the method could not have failed, it did not verify anything.
 
+**A command's exit status is not the pipeline's.** `cmd | tail -n5` reports *tail's* status, so an `echo "exit:$?"` after it prints success however `cmd` failed — and a `--quiet`/`--silent` flag suppresses the error text that would have given it away. Together they make a check that cannot fail: green for a command that did nothing. Confirm an install, build or migration from the **artifact** it was supposed to produce — the directory is populated, the binary resolves, the row exists — not from a status read through a pipe. This matters most for setup steps whose failure surfaces later and somewhere else: a dependency tree that never installed reappears as a wall of unrelated compile errors, and the wrong thing gets debugged. It matters more again when the result is handed to someone else, including a delegated agent, who will build on the claim rather than re-check it.
+
 ## Measuring a change
 
 Applies whenever a number decides whether a change is good — perf work, output quality, anything tuned against a metric rather than a passing test.
