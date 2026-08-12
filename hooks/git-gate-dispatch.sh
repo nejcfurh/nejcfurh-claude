@@ -81,6 +81,9 @@ esac
 case "$cmd" in
   *push*)
     run_gate pre-push-branch-gate.sh
+    # Before the verify gate: a marker recorded in the same command cannot
+    # exist yet, and this names that cause instead of "no fresh pass".
+    run_gate pre-push-marker-chain-gate.sh
     run_gate pre-push-verify-gate.sh
     run_gate pre-push-author-gate.sh
     run_gate pre-push-gate.sh
