@@ -47,6 +47,7 @@ Model per phase: steps 1–2 run on Fable 5, steps 3–4 on Opus 5 (1M context).
 
 - When corrected, update the relevant rule file or CLAUDE.md so the mistake is not repeated. Check whether an existing rule already covers it — update rather than duplicate.
 - After a session that went sideways or required corrections, run `/retro` — it grades the trajectory and encodes the fixes (hook > rule > skill > memory) instead of leaving them as good intentions.
+- **A memory is only as findable as its index line.** The index is what loads into context; the file itself goes unread until that one line makes it look relevant. So the line must name every distinct failure class the file covers, not just the headline one — when a file grows a second lesson, update its index entry too, or that lesson is invisible at recall time and gets re-derived at full cost. Symptom: spending several rounds rediscovering something, then finding it already written down.
 
 ## Environment
 
