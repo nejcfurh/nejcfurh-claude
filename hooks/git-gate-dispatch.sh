@@ -69,6 +69,16 @@ case "$cmd" in
     ;;
 esac
 
+# Same half-way failure, different denied target: commands that rewrite the
+# working tree abort part-way through the checkout, leaving files that read as
+# uncommitted work. Runs after the config gate so `checkout -b` keeps that gate's
+# more specific message.
+case "$cmd" in
+  *pull*|*merge*|*rebase*|*stash*|*checkout*|*switch*)
+    run_gate pre-git-sandbox-tree-gate.sh
+    ;;
+esac
+
 # Moving a checkout onto an existing branch carries uncommitted tracked changes
 # across silently. Runs after the sandbox gate so `checkout -b` under the sandbox
 # still gets the more actionable message; this gate allows -b entirely.
