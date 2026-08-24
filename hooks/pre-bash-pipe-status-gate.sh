@@ -22,10 +22,19 @@
 set -u
 
 [ -n "${SKIP_BASH_PIPE_STATUS_GATE:-}" ] && exit 0
-command -v jq >/dev/null 2>&1 || exit 0
 
 payload=$(cat 2>/dev/null) || exit 0
 [ -n "$payload" ] || exit 0
+
+# This runs on EVERY Bash call, so bail before spending a jq and two greps on the
+# common case. A command with no pipe can never match, and the check is a builtin
+# against the raw payload — free next to the three processes it skips.
+case "$payload" in
+  *'|'*) : ;;
+  *) exit 0 ;;
+esac
+
+command -v jq >/dev/null 2>&1 || exit 0
 
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
 [ -n "$cmd" ] || exit 0
