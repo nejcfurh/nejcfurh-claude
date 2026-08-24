@@ -157,6 +157,10 @@
             "command": "HOOK=\"$HOME/.claude/hooks/gh-gate-dispatch.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
             "if": "Bash(gh *)",
             "timeout": 480
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/pre-bash-pipe-status-gate.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true"
           }
         ]
       }

@@ -39,6 +39,14 @@ Before running or recommending a bulk operation — a backfill, migration loop, 
 
 The same check applies below "bulk," not just above it. A single scripted or automated action that creates real records or triggers a real paid API call against shared infrastructure carries the same disclosure obligation as a bulk operation — the trigger is "does this have a real side effect," not "how many iterations." A preview or staging environment the user just stood up for testing is not exempt: it is still shared infrastructure with real downstream effects (database writes, third-party API costs), and "it's just for testing" is not the same as "nobody needs to know this happened." Flag it before the first run, not after several have already landed.
 
+## Copying data is a disclosure decision
+
+Pulling a dataset out of a shared environment onto someone's machine is its own decision, separate from whatever you needed it for, and it is made on what the data *contains* — so find out before describing it.
+
+**A schema-scoped export is not a PII-scoped export.** Excluding an auth or identity schema does not make an extract clean: application tables carry their own email, name, phone and address columns, and audit or event-log tables are usually the worst offenders because nobody thinks of them as customer data. Enumerate the columns (`information_schema.columns` filtered on the obvious names) and grep the produced file before making any claim about what is in it. Never present a scoping choice as a privacy guarantee it does not provide — if someone accepts a copy because you said it carried nothing sensitive, an inaccurate summary has made that decision for them on false terms. State what it does contain, where it landed, and that it is ignored by version control rather than absent from disk.
+
+Prefer the least-sensitive source that answers the question, and prefer a target you can name over a whole-schema sweep. When the data is only needed to make a screen render, a synthetic fixture beats a real extract and needs no disclosure at all.
+
 ## Anti-rationalization
 
 Never accept these shortcuts:
