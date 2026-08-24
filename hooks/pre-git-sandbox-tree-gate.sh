@@ -45,16 +45,24 @@ sandbox_off=$(printf '%s' "$payload" | jq -r '.tool_input.dangerouslyDisableSand
 # cannot trigger the gate.
 scrubbed=$(printf '%s' "$cmd" | sed -e "s/'[^']*'/''/g" -e 's/"[^"]*"/""/g')
 
-matched=""
-case "$scrubbed" in
-  *"git pull"*)   matched="git pull" ;;
-  *"git merge"*)  matched="git merge" ;;
-  *"git rebase"*) matched="git rebase" ;;
-esac
+# Global options may sit between `git` and the subcommand (`git -C <path> pull`,
+# `git -c k=v merge`), so match the subcommand past them rather than the literal
+# "git pull" substring.
+GLOBAL_OPTS='( +(-C +[^ ]+|-c +[^ ]+|--git-dir=[^ ]*|--work-tree=[^ ]*|--exec-path=[^ ]*|--namespace=[^ ]*|--no-pager|--paginate|-p))*'
 
-if [ -z "$matched" ]; then
+sub_used() { # sub_used <subcommand-alternation>
+  printf '%s' "$scrubbed" | grep -Eq "(^|[^[:alnum:]_-])git${GLOBAL_OPTS} +($1)([^[:alnum:]_-]|\$)"
+}
+
+matched=""
+if   sub_used 'pull';   then matched="git pull"
+elif sub_used 'merge';  then matched="git merge"
+elif sub_used 'rebase'; then matched="git rebase"
+fi
+
+if [ -z "$matched" ] && sub_used 'stash'; then
   case "$scrubbed" in
-    *"git stash pop"*|*"git stash apply"*) matched="git stash pop/apply" ;;
+    *" pop"*|*" apply"*) matched="git stash pop/apply" ;;
   esac
 fi
 
@@ -63,7 +71,9 @@ fi
 if [ -z "$matched" ]; then
   case "$scrubbed" in
     *" -- "*) : ;;
-    *"git checkout"*|*"git switch"*) matched="git checkout/switch" ;;
+    *)
+      if sub_used 'checkout|switch'; then matched="git checkout/switch"; fi
+      ;;
   esac
 fi
 
