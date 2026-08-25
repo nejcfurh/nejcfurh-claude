@@ -60,11 +60,24 @@ Never accept these shortcuts:
 | TODO without a ticket | Dead code; ticket it or fix it now |
 | Copy-paste with tweaks | Duplication diverges; extract or accept repetition consciously |
 
+## A noticed concern is a debt, not a thought
+
+The most expensive misses are rarely the ones you failed to see. They are the ones you *did* see, phrased to yourself as "worth checking" or "I'll note that in the write-up", and then never discharged. The noticing feels like handling it, so the item is silently marked done and the work ships without it — and because you already considered it, you will not reconsider it.
+
+Two shapes, both costly:
+
+- **A check you decided to run.** Run it then, or say out loud that you skipped it and why. "I should confirm nothing else is using this before I overwrite it" is worthless one command later, once the damage is done.
+- **A trade-off you decided to record.** Put it in the artifact — the PR body, the ticket, the handover — at the moment you notice it, not at the end. A caveat that lives only in your reasoning does not exist for anyone else, and a reviewer finding it later reads as you having hidden it rather than having weighed it.
+
+Treat "I'll come back to that" as a commitment with no scheduler behind it. Either do it now, write it into the artifact now, or state plainly that you are not doing it.
+
 ## Verifying a change
 
 **A check must be derived independently of the change.** When you verify a bulk edit, a search-and-replace, or a delegated search, build the check from a different starting point than the edit — a different pattern shape, a different layer, or the rendered/deployed output rather than the source you touched. A grep that reuses the fix's own pattern, a test that asserts against the same constant the code maps over, and a delegate's search that pre-filtered out the files in question all share one failure mode: they confirm the assumption instead of testing the result, and they come back green. The check that finds the miss is almost always the one built a different way.
 
 This is worse than an unverified change, because a green check gets reported as fact and is believed. Treat "I verified it" as a claim about the *method*, not the outcome: if the method could not have failed, it did not verify anything.
+
+**Proving a new test can fail requires a harness valid for BOTH versions.** Running a fresh test against the pre-change code is the right instinct — a test that passes before and after asserts nothing about the change. But the run only means something if the *only* difference is the code under test. Point a new test at the old implementation and it will often fail for a reason that has nothing to do with behaviour: a mock or stub written against the new module's imports, a helper or fixture that did not exist yet, a renamed export. That is a red result you have not earned, and it reads exactly like the proof you wanted. Before believing a red, read the failure message: an import, type or "not a function" error is a broken harness, not a behavioural difference. Fill in whatever the old version needs — stubbed to what production actually does — and re-run. This cuts both ways: for a change that is deliberately behaviour-neutral, a test passing against *both* versions is the proof, and the same broken harness would have shown five confident failures instead.
 
 **A command's exit status is not the pipeline's.** `cmd | tail -n5` reports *tail's* status, so an `echo "exit:$?"` after it prints success however `cmd` failed — and a `--quiet`/`--silent` flag suppresses the error text that would have given it away. Together they make a check that cannot fail: green for a command that did nothing. Confirm an install, build or migration from the **artifact** it was supposed to produce — the directory is populated, the binary resolves, the row exists — not from a status read through a pipe. This matters most for setup steps whose failure surfaces later and somewhere else: a dependency tree that never installed reappears as a wall of unrelated compile errors, and the wrong thing gets debugged. It matters more again when the result is handed to someone else, including a delegated agent, who will build on the claim rather than re-check it.
 

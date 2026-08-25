@@ -161,6 +161,11 @@
           {
             "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/pre-bash-pipe-status-gate.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/pre-bash-build-dev-server-gate.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true",
+            "timeout": 15
           }
         ]
       }
