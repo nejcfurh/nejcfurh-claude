@@ -4,6 +4,8 @@
 
 The baseline is the surrounding code — match its comment density and idiom. What follows are the standing preferences that override that baseline where the two disagree.
 
+**A project-level prohibition outranks everything below.** Where a project's own instructions ban comments, that is absolute: write none, including the non-obvious-WHY cases this file otherwise asks for, and including in files you create from scratch. The urge to leave a short rationale for the next reader is precisely what such a rule exists to stop — that rationale goes in the PR description instead, where it stays with the change. Check for the prohibition before the first comment goes into a new file, not after a reviewer strips them out.
+
 ## Write a comment for a non-obvious WHY
 
 - A hidden constraint ("must run before X because Y")
