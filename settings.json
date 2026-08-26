@@ -288,5 +288,6 @@
   "tui": "default",
   "skipWorkflowUsageWarning": true,
   "editorMode": "normal",
-  "autoCompactEnabled": true
+  "autoCompactEnabled": true,
+  "remoteControlAtStartup": true
 }
