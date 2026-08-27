@@ -56,6 +56,14 @@ case "$cmd" in
   *"gh pr create"*) run_gate pre-pr-test-gate.sh ;;
 esac
 
+# `gh stack init|add` can stage and commit with -A/-m. That commit line contains
+# no `commit` substring, so git-gate-dispatch.sh never routes it to the commit
+# gates — this gate refuses the shortcut and sends the content back through
+# `git commit`, where they fire.
+case "$cmd" in
+  *"gh stack"*) run_gate pre-gh-stack-commit-gate.sh ;;
+esac
+
 # Advisory, and last: its stdout is a JSON context envelope that must not be mixed
 # with gate output, and a blocked command should not pay the API round-trip.
 case "$cmd" in

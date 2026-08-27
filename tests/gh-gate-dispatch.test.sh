@@ -100,6 +100,16 @@ check "bare gh pr create with failing tests blocked" "2" "$(rc_of "$r")"
 r=$(run "$repo" 'gh pr create --fill')
 check "gh pr create with no test script allowed" "0" "$(rc_of "$r")"
 
+# --- the gh-stack commit gate is reached ---------------------------------------
+# `gh stack add -A -m` writes a commit on a command line with no `commit` in it,
+# so the git dispatcher never sees it. Routing has to happen here or those gates
+# are simply skipped.
+r=$(run "$repo" 'gh stack add -A -m "feat(api): add endpoint"')
+check "gh stack committing behind the gates blocked" "2" "$(rc_of "$r")"
+
+r=$(run "$repo" 'gh stack add slice-two')
+check "gh stack creating only a branch allowed" "0" "$(rc_of "$r")"
+
 # --- commands that reach no gate ----------------------------------------------
 r=$(run "$repo" 'gh issue list')
 check "unrelated gh command allowed" "0" "$(rc_of "$r")"

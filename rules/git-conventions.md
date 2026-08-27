@@ -9,7 +9,7 @@
 - **Never add Co-Authored-By or any AI attribution** — commits, PR titles/descriptions, issues, comments. This includes the "Generated with Claude Code" footer harnesses append by default. (Enforced by hook.)
 - Never commit directly to `main`/`master` — verify the branch first, use a feature branch. (Enforced by hook.)
 - Autonomous commit, push, and PR creation are allowed by default — no separate "now commit/push" instruction is needed. Before pushing: work on a feature branch, run `/verify-done`, and let the gates pass. Still **never** auto-merge (the user merges) and never push to the default branch; force pushes to feature branches need no asking. A project that wants a human checkpoint can re-require explicit instructions in its own CLAUDE.md.
-- **Never route around a gate.** When a hook blocks a git operation, do not re-issue it through wrapper scripts, alternate command forms, or anything else that hides the operation from the gates. Fix the trigger instead (feature branch, ff-merge) or hand the exact command to the user to run with the `!` prefix.
+- **Never route around a gate.** When a hook blocks a git operation, do not re-issue it through wrapper scripts, alternate command forms, or anything else that hides the operation from the gates. Fix the trigger instead (feature branch, ff-merge) or hand the exact command to the user to run with the `!` prefix. A commit made by a tool other than `git commit` is an alternate command form, whether or not you meant it as one: `gh stack init|add -A -m …` writes a real commit on a command line containing no `commit`, so the branch, co-author, message and secret gates all sit it out. Stage and commit separately. (Gated.)
 
 ## Branches and PRs
 
@@ -18,7 +18,7 @@
 - To undo commits, use `git reset --soft` (keeps changes staged). Never `git reset --hard` — it destroys work and is deny-blocked; if a hard discard is truly needed, ask the user to run it themselves.
 - Never merge PRs — the user merges manually. (Enforced by hook.)
 - Never close/reopen a PR (or otherwise manipulate PR open/closed state) to work around tooling — it notifies reviewers and can re-trigger full CI pipelines. A stale CI result clears on the next `synchronize` (push) event or an explicit re-run; if neither fits, ask before touching PR state.
-- One PR = one concern. Once a PR is open, a new request gets a new branch off main — only add commits to an open PR when the user explicitly says to. An open PR can merge at any moment; commits stacked on its branch strand.
+- One PR = one concern. Once a PR is open, a new request gets a new branch off main — only add commits to an open PR when the user explicitly says to. An open PR can merge at any moment; commits stacked on its branch strand. When the new work genuinely *depends* on the open PR, neither of those is the answer: stack it (below), because branching off the trunk strands the work and adding commits breaks the one-concern boundary.
 - When branching off a protected base (`develop`/`main`) — including via `git worktree add -b <branch> <path> origin/<base>` — don't leave the feature branch tracking the protected branch; unset the upstream (`git branch --unset-upstream`) so a bare `git push` can't target it.
 - Rebase onto the target branch (`git fetch origin main && git rebase origin/main`) before creating a PR.
 - Run `/verify-done` before pushing any branch. (Enforced by hook — a READY verdict records a marker that pushes require; any edit invalidates it. The marker is only minted for a clean tracked tree: checks that passed on a dirty tree get READY TO COMMIT, not push-ready READY.)
@@ -26,6 +26,28 @@
 - PR descriptions: bullet points in the summary, not prose paragraphs.
 - After pushing new commits to an existing PR, update its title and description (`gh pr edit`) to reflect all changes.
 - If the repo has a PR template, use it.
+
+## Stacking
+
+A stack is how dependent concerns stay separately reviewable instead of collapsing into one diff — it does not relax "one PR = one concern", it is what makes the rule survive dependent work. Default to one when any of these holds:
+
+- the work runs past ~30 files or ~1000 lines
+- new work depends on a PR that is already open
+- a branch has grown into concerns a reviewer would want to judge one at a time
+
+Reviewability is the thing being optimised. Two PRs that each read in one sitting beat one that nobody finishes.
+
+**Mechanics.** `gh stack` (`gh extension install github/gh-stack`) owns branch topology; `git add` + `git commit` own content. Never `gh stack init|add -A -m` — it commits behind the gates.
+
+**Slicing.**
+
+- **Order bottom-up, trunk first:** dependencies and config → schema and migrations → data access → API and business logic → UI → tests and docs that belong to no slice above.
+- **The seam test.** Every slice must build and pass on its own, referencing nothing introduced above it. If two candidate slices cannot both satisfy that, they are one slice. A stack whose middle PR does not compile is worse than a single large PR, so prefer fewer, larger slices over more slices that fail the seam test.
+- **No ordinals in branch names.** Position lives in each PR's base, and a `-1-`/`-2-` prefix goes stale the moment a slice is inserted, dropped or reordered. Share a stem across the slice names so the stack reads as one group.
+- **Each PR body covers only its own slice**, and states its position and what it sits on — reviewers read bottom-up and need to know what is not theirs to review.
+- **Slicing an existing branch is restructuring.** Propose the slice plan and get approval before mutating anything, take a backup ref first, and say what the ref is.
+- **How it merges depends on whether the host knows it is a stack.** A *registered* stack merges atomically: merging any PR lands it together with every unmerged PR below it in one all-or-nothing operation, and the next PR up is re-based onto the trunk for you — so one click on the top PR can land the whole stack, and there is nothing to do bottom-up by hand. A chain you merely based on each other is not that: merge it bottom-up, one at a time, re-basing what remains after each. Check which you have before planning the merge; the difference is one API field, and assuming the manual case turns a one-click merge into an afternoon.
+- **Read the allowed merge methods off the base branch's ruleset, not the repo settings.** A ruleset can narrow a repo that advertises merge/squash/rebase down to one method, and it is the ruleset that governs. Squash is the fragile choice on a stack in any case — it replaces the exact commits the upper branches are based on — so confirm it is both permitted and supported before choosing it.
 
 ## State freshness
 
