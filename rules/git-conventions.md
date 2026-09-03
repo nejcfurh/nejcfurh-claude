@@ -53,6 +53,8 @@ Reviewability is the thing being optimised. Two PRs that each read in one sittin
 
 State from earlier in the conversation goes stale — and so do local clones.
 
+- **External state a handoff hands you is unverified, not established.** A handoff or an earlier session saying an external object does not exist — a flag, a dashboard, a queue, a third-party record — is a claim about a system that other people also change, and it decays the moment it is written. Re-read it from the owning system before repeating it, and certainly before building a plan item around creating it or writing it into a durable artifact. The failure is quiet and expensive: the object already existed, configured correctly by someone else, and every downstream statement inherited the error.
+
 - **Repos:** before analyzing, comparing, or building on any repo — including at the start of a task and after any conversation gap — run `git fetch` and `git status -sb` first. A stale clone produces conclusions upstream has already invalidated; analysis done on it is wasted.
 - **Outgoing commits:** before pushing a branch, review `git log --oneline @{u}..` (or `origin/<base>..HEAD` for a new branch) — every commit must be yours and expected. Local history can be polluted by tooling without the working tree ever looking dirty. (Backed by the push author gate.)
 - **PRs:** before asserting PR state (open/merged/checks-passing), run `gh pr view --json state,mergedAt,statusCheckRollup` and answer from that output, not memory. The pre-git-state-refresh hook injects a `[pr-state]` line before git/gh writes — read it; if it reports MERGED or CLOSED, pause and confirm intent.
