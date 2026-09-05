@@ -110,7 +110,81 @@ check "missing transcript stays silent" EMPTY "$out"
 out=$(payload '../../etc/passwd' "$high" | CONTEXT_NUDGE_STATE_DIR="$state" bash "$SUT" 2>/dev/null)
 check "path-traversal session id rejected" EMPTY "$out"
 
-rm -rf "$work"
+# --- tiering ------------------------------------------------------------------
+# One nudge per session is the behaviour these cases exist to prevent: a session
+# that climbs 60% -> 80% -> 95% must be warned at each tier it crosses, and must
+# stay quiet everywhere in between. All figures are against the default 200k
+# window, so the percentage is the transcript's token count / 2000.
+t60="$work/t60.jsonl"; usage_line 0 120000 0 > "$t60"
+t80="$work/t80.jsonl"; usage_line 0 160000 0 > "$t80"
+t95="$work/t95.jsonl"; usage_line 0 190000 0 > "$t95"
+t99="$work/t99.jsonl"; usage_line 0 198000 0 > "$t99"
+
+tier=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-tier.XXXXXX")
+
+nudge() { # nudge <session> <transcript> [state-dir]
+  payload "$1" "$2" | CONTEXT_NUDGE_STATE_DIR="${3:-$tier}" bash "$SUT" 2>/dev/null
+}
+
+check "tier 50 fires on first crossing"      "60%" "$(nudge climb "$t60")"
+check "same tier stays silent at 60%"        EMPTY "$(nudge climb "$t60")"
+usage_line 0 148000 0 > "$work/t74.jsonl"    # 74% — one point below the next tier
+check "74% does not reach the 75 tier"       EMPTY "$(nudge climb "$work/t74.jsonl")"
+check "tier 75 fires once crossed"           "80%" "$(nudge climb "$t80")"
+check "and is silent on repeat"              EMPTY "$(nudge climb "$t80")"
+check "tier 90 fires once crossed"           "95%" "$(nudge climb "$t95")"
+check "all tiers spent — silent at 99%"      EMPTY "$(nudge climb "$t99")"
+
+# A session that arrives high fires for the tier it reached, not once per tier
+# it skipped past.
+check "straight to 95% fires the 90 tier" "95%" "$(nudge jumper "$t95")"
+check "and does not fire again"           EMPTY "$(nudge jumper "$t99")"
+
+# --- escalating advice --------------------------------------------------------
+# The whole point of a second and third nudge is that they say something the
+# first did not; identical text three times is noise the reader learns to skip.
+check "50 tier suggests a handoff"    "Consider /handoff" "$(nudge tone-a "$t60")"
+check "75 tier presses to wrap up"    "Wrap up"           "$(nudge tone-b "$t80")"
+check "90 tier is urgent"             "Hand off NOW"      "$(nudge tone-c "$t95")"
+
+# --- custom tier lists --------------------------------------------------------
+out=$(payload custom "$t60" | CONTEXT_NUDGE_STATE_DIR="$tier" CONTEXT_NUDGE_PERCENT=10,20,30 bash "$SUT" 2>/dev/null)
+check "custom list fires at its top reached tier" "60%" "$out"
+out=$(payload custom "$t80" | CONTEXT_NUDGE_STATE_DIR="$tier" CONTEXT_NUDGE_PERCENT=10,20,30 bash "$SUT" 2>/dev/null)
+check "custom list exhausted stays silent" EMPTY "$out"
+
+# An unsorted list must behave identically — only the highest tier at or below
+# the reading matters, so ordering is not the caller's problem.
+out=$(payload unsorted "$t80" | CONTEXT_NUDGE_STATE_DIR="$tier" CONTEXT_NUDGE_PERCENT=90,50,75 bash "$SUT" 2>/dev/null)
+check "unsorted tier list works" "80%" "$out"
+out=$(payload unsorted "$t80" | CONTEXT_NUDGE_STATE_DIR="$tier" CONTEXT_NUDGE_PERCENT=90,50,75 bash "$SUT" 2>/dev/null)
+check "unsorted list respects what already fired" EMPTY "$out"
+
+# Garbage in the list is skipped, not fatal.
+out=$(payload garbage "$t60" | CONTEXT_NUDGE_STATE_DIR="$tier" CONTEXT_NUDGE_PERCENT=abc,50,,xy bash "$SUT" 2>/dev/null)
+check "non-numeric tiers ignored" "60%" "$out"
+out=$(payload allbad "$t60" | CONTEXT_NUDGE_STATE_DIR="$tier" CONTEXT_NUDGE_PERCENT=abc,xyz bash "$SUT" 2>/dev/null)
+check "a wholly invalid list stays silent" EMPTY "$out"
+
+# --- upgrade path -------------------------------------------------------------
+# The single-shot version left an EMPTY state file. A session live across the
+# upgrade must re-arm rather than fall permanently silent.
+legacy=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-legacy.XXXXXX")
+: > "$legacy/oldsess"
+check "legacy empty state file re-arms" "60%" "$(nudge oldsess "$t60" "$legacy")"
+check "and then tiers normally"         EMPTY "$(nudge oldsess "$t60" "$legacy")"
+
+# --- the state file records the tier, not just the fact ------------------------
+recorded=$(cat "$tier/climb" 2>/dev/null)
+if [ "$recorded" = "90" ]; then
+  echo "PASS: state file records the highest tier reached"
+  pass=$((pass + 1))
+else
+  echo "FAIL: state file records the highest tier reached — got '${recorded:-empty}'"
+  fail=$((fail + 1))
+fi
+
+rm -rf "$work" "$tier" "$legacy"
 
 echo ""
 echo "$pass passed, $fail failed"
