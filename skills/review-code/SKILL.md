@@ -175,7 +175,7 @@ Enforce React 18 and Next.js 14 best practices specific to this project.
 - **Interface Segregation**: Components accepting large prop objects where they use only a few properties
 - **Dependency Inversion**: Hard-coded dependencies instead of injection or configuration
 - **Naming**: Unclear variable/function names, single-letter variables outside loops, misleading names
-- **Complexity**: Functions longer than 50 lines, deeply nested conditionals (more than 3 levels), high cyclomatic complexity
+- **Complexity**: Functions longer than 50 lines, deeply nested conditionals (more than 3 levels), cyclomatic complexity past the project's configured threshold — or past 10 where nothing is configured. Report the count per flagged function rather than "high"; thresholds, measurement commands and refactor tactics live in `rules/engineering-principles.md` under *Branching complexity*
 - **Magic values**: Hardcoded numbers or strings that should be named constants
 - **Dead code**: Commented-out code, unreachable code paths, unused exports
 
