@@ -9,6 +9,18 @@
 - PRs touching 15+ files need a reason (rename/migration is fine; "I was in the area" is not).
 - Past ~30 files or ~1000 lines, the answer is a **stack**, not a bigger PR — and so it is whenever new work depends on a PR that is already open. Reviewability is the constraint being optimised, not PR count. Mechanics, slicing order and the seam test: `git-conventions.md`.
 
+## Branching complexity
+
+Cyclomatic complexity is decision points + 1 — every `if`, `else if`, `case`, loop, `catch`, ternary, and each `&&`/`||` inside a condition. **The project's own config wins**: an eslint `complexity` rule, a radon or sonar threshold, a `gocyclo` flag in CI is the number to work to. Absent one, treat 1-5 as fine, 6-10 as refactor-if-already-in-the-file, 11-15 as refactor now, and past 15 as split before the change lands.
+
+Measure rather than eyeball, because the eyeballed estimate runs low: `radon cc -s -a <path>` for Python, `gocyclo <path>` for Go, `lizard <path>` for most anything else, and eslint's `complexity` rule for JS/TS (its one-off `--rule` form differs between eslint 8 and flat config — check which the project is on). Where no tool is installed, count by hand and show the count per function; a number someone else can re-derive beats "this looks gnarly".
+
+Tactics, in the order to reach for them: guard clauses that invert and return early; extract a function whose name states *what*, not *how*; a lookup table in place of an if-else or switch chain; a named predicate instead of a four-clause boolean; extract the loop body and `continue` instead of nesting. Strategy or polymorphism for a switch-on-type only once that same switch appears in two or more places — one occurrence is a switch, not a missing abstraction.
+
+Two failure modes matter more than the score. **Don't game the metric** — a dense one-liner hiding six branches scores better than the honest if-chain it replaced and reads worse, so complexity has to move into named units rather than disappear into cleverness. And **the count triggers a look, it never delivers a verdict**: splitting a linear dispatch into six functions lowers the number and can hurt the reader. A before/after count in a PR body is a durable number, so *Measuring a change* applies to it in full — including reverting the refactor when the result reads worse.
+
+Lowering a count is behaviour-neutral by definition, which sets the bar for proving it: the existing tests must pass against **both** versions (`tests.md`), and a refactor with no test over it either gets one first or stays small enough to read in one sitting. Never change an exported signature to lower a count without asking. None of this licenses a drive-by — a function over the threshold that the task does not otherwise touch is a note in the PR body, not an edit.
+
 ## Vertical slicing
 
 Implement features as thin end-to-end slices (UI + API + DB + test for one path), not horizontal layers ("all models first, then all routes"). If a slice is too large, narrow the scope — fewer fields, simpler validation.
