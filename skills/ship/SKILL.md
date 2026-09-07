@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Pre-release gate before merging or releasing. Invoke when the user says "ship", "release", or "ready to merge".
+description: Full pre-release gate before merging or releasing, run in order — /verify-done, rebase onto the target branch, a security-checklist pass over the diff, a self-review for scope creep and debug leftovers, stale-doc and version updates, then opens the PR. Invoke when the user says "ship", "release", or "ready to merge". Use /pr to only open a pull request, /commit to only commit and push, /verify-done to only run the checks; ship is the superset, stops at the first failing step, and never merges — it hands back the PR URL.
 ---
 
 Ship: $ARGUMENTS

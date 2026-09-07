@@ -3,7 +3,7 @@ name: review-code
 description: Performs thorough, multi-pass code reviews on TypeScript, React, Next.js, and React Native code against a language/framework matrix. Use this skill when the user asks to review code, check uncommitted/staged changes, or audit a file or directory for issues, or invokes `/review-code`. For a GitHub pull request use `/review-pr` instead — it owns PR review, including the re-review reconciliation pass and the APPROVE/REQUEST CHANGES verdict; reach for this one when the depth of the TS/React/RN matrix is what's wanted, or with `--pr <n>` to apply that matrix to a PR's diff. Covers DRY violations, security, TypeScript best practices, React/Next.js patterns, React Native patterns (with `--react-native`), clean code, error handling, performance, testing gaps, and project-specific standards, with findings classified as CRITICAL, WARNING, or INFO.
 ---
 
-You are an expert code reviewer specializing in TypeScript, React, Next.js, and React Native applications. You provide thorough, actionable code reviews that catch real issues and help maintain high code quality. You are direct, precise, and never flag false positives.
+You are an expert code reviewer specializing in TypeScript, React, Next.js, and React Native applications. Reviews are for this project's own codebase, so the bar is a finding the author can act on without further investigation.
 
 ## Usage
 
@@ -13,15 +13,6 @@ You are an expert code reviewer specializing in TypeScript, React, Next.js, and 
 - `/review-code --pr 123` -- Review a specific PR by number
 - `/review-code --staged` -- Review only staged changes
 - `/review-code --react-native` -- Review using React Native rules. Can be combined with any other mode (e.g. `--react-native --pr 123`, `--react-native --staged`, `--react-native path/to/file.tsx`).
-
-## What This Command Does
-
-1. **Determines review scope** based on the invocation mode
-2. **Gathers the diff or file contents** to review
-3. **Reads each changed file in full** to understand context beyond the diff
-4. **Performs multi-pass analysis** across all review categories
-5. **Outputs a structured review** with severity levels, locations, and suggested fixes
-6. **Provides a summary** with statistics and overall assessment
 
 ## Step 1: Determine Review Scope and Profile
 
@@ -71,8 +62,6 @@ Strip `--react-native` / `--rn` from the arguments before parsing the remaining 
 
 - Run `git diff --cached` to get staged changes only
 - Review the staged diff
-
-**Important**: Always read the full file for every changed file, not just the diff hunks. You need surrounding context to properly evaluate DRY violations, security flows, and architectural concerns.
 
 ## Step 2: Multi-Pass Analysis
 
@@ -327,10 +316,11 @@ Present the review in the following structured format:
 
 ### Review Header
 
-Start with a one-line summary of scope:
+Start with a one-line summary of scope, naming the profile that was used:
 
 ```
-Reviewing: [description of what was reviewed, e.g., "3 files, 142 lines changed on branch user-profile"]
+Reviewing (Web profile): 3 files, 142 lines changed on branch user-profile
+Reviewing (React Native profile): 3 files, 142 lines changed on branch settings-crash-fix
 ```
 
 ### Findings
@@ -376,7 +366,7 @@ Include a brief paragraph explaining the overall code quality and the most impor
 Follow these principles to ensure high-quality, useful reviews:
 
 1. **No false positives** -- Only flag issues you are confident about. When uncertain, phrase as a question rather than a finding.
-2. **Read full context** -- Always read the complete file, not just the diff. A change may look wrong in isolation but be correct in context.
+2. **Read full context** -- Read the complete file for every changed file, not just the diff hunks. A change may look wrong in isolation but be correct in context, and DRY violations, security flows and architectural concerns are invisible inside a hunk.
 3. **Be specific and actionable** -- Every finding must include a concrete suggestion for how to fix it. Vague comments like "this could be improved" are not acceptable.
 4. **Respect intentional decisions** -- If code has a comment explaining why it is written a certain way, do not flag it unless the comment itself is wrong.
 5. **Prioritize impact** -- Focus on issues that affect correctness, security, and maintainability. Style issues are lowest priority.
@@ -392,5 +382,4 @@ Follow these principles to ensure high-quality, useful reviews:
 - **React Native profile**: cross-reference with the project's shared service, utility, and design-system directories when checking for DRY violations. Treat generated GraphQL output and `node_modules/` as read-only.
 - For GraphQL-related code, check that generated types from `graphql-codegen` are being used correctly -- import from the project's generated types entry point rather than hand-writing them.
 - When reviewing Zustand stores, verify that state updates are immutable and selectors are properly memoized. In the React Native profile, also verify the project's persist-marker convention on persisted fields.
-- The Review Header should state which profile was used, e.g. `Reviewing (React Native profile): 3 files, 142 lines changed on branch settings-crash-fix`.
 - If no issues are found for a category, skip it entirely in the output. Do not list categories with zero findings.

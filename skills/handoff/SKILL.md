@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: Compact the current conversation into a handoff document for another agent to pick up.
+description: Compact the current conversation into a handoff document a fresh session can resume from — goal, branch/HEAD/verification state, what is done, what remains, decisions, failed approaches, and the exact next command. Written to a temp file, on a fixed skeleton, referencing plans and ADRs rather than restating them. Invoke when the user says "handoff", "hand this off", or asks to carry the work into a new session, and when a context-usage nudge recommends one. It records state; it does not implement, commit or verify anything.
 argument-hint: "What will the next session be used for?"
 ---
 
