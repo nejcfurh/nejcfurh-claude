@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Claude Code status line renderer.
 # Reads the statusline JSON payload on stdin and prints one colored line:
-#   <cyan dir basename> │ <git branch[*]> │ <dim model name> │ <dim config greeting>
-# The git segment is omitted outside a repo; the greeting only appears when the
-# global config's hooks dir is installed. Degrades to nothing without jq.
+#   <cyan dir> │ <git branch[*]> │ <dim model> │ <N% of context used> │ <dim greeting>
+# The git segment is omitted outside a repo, the context segment whenever the
+# percentage is unmeasured, and the greeting only appears when the global
+# config's hooks dir is installed. Degrades to nothing without jq.
 
 set -u
 
@@ -15,12 +16,10 @@ payload=$(cat 2>/dev/null) || exit 0
 # One jq call for every field.
 vals=$(printf '%s' "$payload" \
   | jq -r '[(.workspace.current_dir // .cwd // ""), (.model.display_name // ""),
-            (.context_window.used_percentage // "" | tostring),
-            (.context_window.context_window_size // "" | tostring)] | @tsv' 2>/dev/null) || exit 0
+            (.context_window.used_percentage // "" | tostring)] | @tsv' 2>/dev/null) || exit 0
 dir=$(printf '%s\n' "$vals" | cut -f1)
 model=$(printf '%s\n' "$vals" | cut -f2)
 ctx_pct=$(printf '%s\n' "$vals" | cut -f3)
-ctx_size=$(printf '%s\n' "$vals" | cut -f4)
 
 CYAN=$'\033[36m'
 YELLOW=$'\033[33m'
@@ -53,13 +52,15 @@ if [ -n "$model" ]; then
   [ -n "$line" ] && line="${line}${SEP}${seg}" || line="$seg"
 fi
 
-# Context usage. The statusline payload is the only surface the harness hands the
-# real window size to — Stop hooks get transcript_path and nothing else, which is
-# why context-nudge.sh has to be told the size via CONTEXT_WINDOW_TOKENS. Colour
-# breaks at that hook's own tiers so the two never disagree on screen.
-# used_percentage is input-only and is null early in a session and after
-# /compact, so a missing or non-numeric value drops the segment rather than
-# rendering 0% — the same reason the git segment is omitted outside a repo.
+# Context usage, taken from the payload's own used_percentage rather than
+# recomputed — Claude Code derives it input-only (input + cache reads + cache
+# writes, excluding the response's output tokens), and matching that keeps this
+# segment from drifting away from what /context and the footer report. Colour
+# breaks at context-nudge.sh's 50/75/90 tiers so the two never disagree on
+# screen. used_percentage is null early in a session and again after /compact,
+# so a missing or non-numeric value drops the segment rather than rendering 0%
+# — unmeasured is not empty, and the same guard keeps a malformed payload out of
+# the integer comparison below.
 ctx_pct=${ctx_pct%%.*}
 case "$ctx_pct" in '' | *[!0-9]*) ctx_pct="" ;; esac
 if [ -n "$ctx_pct" ]; then
@@ -70,18 +71,7 @@ if [ -n "$ctx_pct" ]; then
   else
     ctx_color="$DIM"
   fi
-  window=""
-  case "$ctx_size" in
-    '' | *[!0-9]*) : ;;
-    *)
-      if [ "$ctx_size" -ge 1000000 ]; then
-        window=" of $((ctx_size / 1000000))M"
-      elif [ "$ctx_size" -ge 1000 ]; then
-        window=" of $((ctx_size / 1000))k"
-      fi
-      ;;
-  esac
-  seg="${ctx_color}${ctx_pct}%${window} ctx${RESET}"
+  seg="${ctx_color}${ctx_pct}% of context used${RESET}"
   [ -n "$line" ] && line="${line}${SEP}${seg}" || line="$seg"
 fi
 
