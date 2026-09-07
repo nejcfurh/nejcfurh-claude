@@ -49,6 +49,12 @@ time.sleep(120)
     sleep 0.1
   done
   OPEN_PORT=$(cat "$PWD/.port" 2>/dev/null | tr -d '[:space:]')
+  # .port holds the listener's stderr, so a python3 crash — a sandbox denying
+  # bind, for one — also makes it non-empty and the readiness check above accepts
+  # it. Anything but a port number means no listener: take the SKIP path rather
+  # than feed a traceback to lsof, which reads as eight gate failures and sends
+  # the next reader after the gate instead of the harness.
+  case "$OPEN_PORT" in '' | *[!0-9]*) OPEN_PORT="" ;; esac
 fi
 
 cleanup() { [ -n "$LISTENER_PID" ] && kill "$LISTENER_PID" 2>/dev/null; }
