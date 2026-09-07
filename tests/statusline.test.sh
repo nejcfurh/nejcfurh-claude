@@ -54,16 +54,27 @@ omits() {
   local name="$1" cw="$2" out
   out=$(render "$cw")
   case "$out" in
-    *ctx*) echo "FAIL: omits — $name (unexpected ctx segment: [$out])"; fail=$((fail + 1)) ;;
+    *"context used"*) echo "FAIL: omits — $name (unexpected context segment: [$out])"; fail=$((fail + 1)) ;;
     *) echo "PASS: omits — $name"; pass=$((pass + 1)) ;;
   esac
 }
 
-# --- renders: a measured window ----------------------------------------------
-shows "percentage and 1M window" '{"used_percentage":42,"context_window_size":1000000}' '42% of 1M ctx'
-shows "200k window" '{"used_percentage":8,"context_window_size":200000}' '8% of 200k ctx'
-shows "floors a float rather than rounding" '{"used_percentage":42.9,"context_window_size":1000000}' '42% of 1M ctx'
-shows "no window suffix when the size is absent" '{"used_percentage":30}' '30% ctx'
+# omits_substring <name> <context_window-json> <substring that must NOT appear>
+omits_substring() {
+  local name="$1" cw="$2" unwanted="$3" out
+  out=$(render "$cw")
+  case "$out" in
+    *"$unwanted"*) echo "FAIL: $name (found [$unwanted] in [$out])"; fail=$((fail + 1)) ;;
+    *) echo "PASS: $name"; pass=$((pass + 1)) ;;
+  esac
+}
+
+# --- renders: a measured percentage -------------------------------------------
+shows "percentage" '{"used_percentage":42,"context_window_size":1000000}' '42% of context used'
+shows "floors a float rather than rounding" '{"used_percentage":42.9,"context_window_size":1000000}' '42% of context used'
+shows "renders without a window size in the payload" '{"used_percentage":30}' '30% of context used'
+shows "window size is ignored, not rendered" '{"used_percentage":42,"context_window_size":200000}' '42% of context used'
+omits_substring "no window size leaks into the segment" '{"used_percentage":42,"context_window_size":200000}' '200k'
 
 # --- colour tracks context-nudge.sh's own 50/75/90 tiers ---------------------
 shows "dim below 50" '{"used_percentage":49,"context_window_size":1000000}' "${DIM}49%"
@@ -82,8 +93,8 @@ omits "negative percentage" '{"used_percentage":-5,"context_window_size":1000000
 shows "model segment still rendered alongside" '{"used_percentage":42,"context_window_size":1000000}' 'M'
 shows "model segment still rendered without a context window" '' 'M'
 
-# --- a malformed size must not take the whole segment down -------------------
-shows "non-numeric size falls back to a bare percentage" '{"used_percentage":42,"context_window_size":"big"}' '42% ctx'
+# --- a malformed size is simply not read any more -----------------------------
+shows "non-numeric size is harmless" '{"used_percentage":42,"context_window_size":"big"}' '42% of context used'
 
 echo ""
 echo "passed: $pass, failed: $fail"
