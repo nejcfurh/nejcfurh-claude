@@ -45,11 +45,22 @@ const VERDICT = {
 
 // --- Dimensions: independent nodes, each a bounded read-only job over one subsystem ---
 
+// Constraints every node inherits. Interpolated into the scan, verify AND synthesize
+// prompts: a verifier handed a permissions finding will go probe the credential path to
+// "check" it, tripping the security monitor and tainting the run — so the static-only
+// clause has to travel with the finding, not sit on the finder alone.
+const HARD_RULES =
+  'Read the actual files with Read/Grep/Bash before asserting anything — every claim must cite concrete paths and quotes. ' +
+  'Do NOT edit, create or delete any file. ' +
+  'Reason STATICALLY from file text for anything touching permissions, secrets or credentials: never run glob/picomatch tests ' +
+  'against real credential paths (.vault-token, *.pem, ~/.ssh, ~/.aws), never probe whether a deny could be bypassed, and never ' +
+  'execute an operation a gate guards (git commit/push, rm, gh pr merge) to see what happens.'
+
 const PREAMBLE =
   'You are auditing a personal Claude Code CONFIG repo (global rules/skills/agents/hooks that symlink into ~/.claude). ' +
-  'Read the actual files with Read/Grep/Bash before asserting anything — every finding must cite concrete paths and quotes. ' +
   'Report only genuine internal inconsistencies or drift, not style preferences or improvement ideas. ' +
-  'If the subsystem is clean, return an empty findings array. Do NOT edit any file.'
+  'If the subsystem is clean, return an empty findings array. ' +
+  HARD_RULES
 
 const DIMENSIONS = [
   {
@@ -81,10 +92,7 @@ const DIMENSIONS = [
     prompt:
       `${PREAMBLE}\nSubsystem: settings.json permissions (allow/deny). Deny beats allow everywhere. ` +
       `Flag allow rules fully shadowed by a broader deny (dead allows), redundant/overlapping rules, ` +
-      `and any deny/allow that contradicts the "Secret-read boundary" intent documented in README.md.\n` +
-      `Reason statically from the settings.json text only. Do NOT run glob/picomatch tests against real ` +
-      `credential paths (.vault-token, *.pem, ~/.ssh, etc.) or probe whether a credential deny could be ` +
-      `bypassed — that trips the security monitor and is out of scope for a consistency audit.`,
+      `and any deny/allow that contradicts the "Secret-read boundary" intent documented in README.md.`,
   },
   {
     key: 'skill-agent-integrity',
@@ -129,7 +137,7 @@ const perDimension = await pipeline(
     return parallel(
       findings.map((f) => () =>
         agent(
-          `A prior pass flagged this in the config repo. Re-read the cited file(s) and try to REFUTE it. ` +
+          `${HARD_RULES}\nA prior pass flagged this in the config repo. Re-read the cited file(s) and try to REFUTE it. ` +
             `Return real=false if the evidence does not hold up.\n\n${JSON.stringify(f)}`,
           { label: `verify:${dim.key}`, phase: 'Verify', schema: VERDICT, agentType: 'general-purpose' },
         ).then((v) => (v && v.real ? { ...f, verifyReason: v.reason } : null)),
@@ -156,7 +164,7 @@ const rank = { high: 0, medium: 1, low: 2 }
 const ordered = [...confirmed].sort((a, b) => (rank[a.severity] ?? 3) - (rank[b.severity] ?? 3))
 
 const report = await agent(
-  `Write a concise Markdown audit report for this config repo. Group these confirmed findings by ` +
+  `${HARD_RULES}\nWrite a concise Markdown audit report for this config repo. Group these confirmed findings by ` +
     `severity (high → low), one bullet each: file, the problem, and the smallest fix. No preamble.\n\n` +
     JSON.stringify(ordered),
   { label: 'synthesize', phase: 'Synthesize', agentType: 'general-purpose' },
