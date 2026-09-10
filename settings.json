@@ -166,6 +166,11 @@
             "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/pre-bash-build-dev-server-gate.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/pre-bash-shell-authored-source-gate.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true",
+            "timeout": 15
           }
         ]
       },
