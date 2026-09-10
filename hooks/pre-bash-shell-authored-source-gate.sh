@@ -47,8 +47,11 @@ bound='([^A-Za-z0-9]|$)'
 # writing one. Anything else is not authoring source through the shell.
 # Both argument orders count: `writeFileSync('a.ts', …)` puts the path inside
 # the call, `Path('a.ts').write_text(…)` puts it before the call.
+# The heredoc delimiter must follow its `<<` immediately: allowing space there
+# makes `grep '^<<<<<<<' some/file.ts` — hunting merge-conflict markers — read
+# as a heredoc, which was every false positive in a 6969-command replay.
 printf '%s' "$cmd" | grep -Eq \
-  "(>>?[[:space:]]*[^[:space:]|]*${src_ext}${bound}|<<[-']*[[:space:]]*[A-Za-z_]+.*${src_ext}${bound}|(write_text|writeFileSync)[[:space:]]*\\([^)]*${src_ext}${bound}|${src_ext}['\"]*\\)[[:space:]]*\\.[[:space:]]*write_text)" \
+  "(>>?[[:space:]]*[^[:space:]|]*${src_ext}${bound}|<<[-]?['\"]?[A-Za-z_][A-Za-z0-9_]*.*${src_ext}${bound}|(write_text|writeFileSync)[[:space:]]*\\([^)]*${src_ext}${bound}|${src_ext}['\"]*\\)[[:space:]]*\\.[[:space:]]*write_text)" \
   || exit 0
 
 # Scratch paths are the legitimate home for throwaway scripts.

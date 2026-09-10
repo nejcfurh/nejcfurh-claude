@@ -86,6 +86,10 @@ quiet "grep whose pattern contains an arrow" 'grep -rn "=>" src/foo.ts'
 quiet "heredoc carrying no source path" 'psql <<EOF
 select 1;
 EOF'
+# Every false positive in a 6969-command replay of real sessions was this one
+# shape: hunting merge-conflict markers in a source file.
+quiet "grep for conflict markers in a source file" "grep -n -A30 '^<<<<<<<' hooks/useGuard.ts | head -70"
+quiet "conflict-marker count across sources" "grep -c '^<<<<<<<' app/page.tsx components/a.tsx"
 
 # --- bypass -------------------------------------------------------------------
 out=$(jq -n --arg cmd 'echo x > lib/a.ts' '{tool_input:{command:$cmd}}' |
