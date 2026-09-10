@@ -84,6 +84,34 @@ check "leading cd becomes the cpath" "/tmp/repo" "${GIT_CMD_CPATH[0]}"
 git_cmd_scan commit '(cd /tmp/repo && git commit -m "x")'
 check "cd inside a subshell becomes the cpath" "/tmp/repo" "${GIT_CMD_CPATH[0]}"
 
+# The shape that let a commit onto main: the cd target is a variable, so the
+# literal `$R` reached git_cmd_repo, which discards it and falls back to the
+# session repo — a different repo, on a legal branch, silently allowed.
+git_cmd_scan commit 'R=/tmp/repo; cd "$R" && git commit -m "x"'
+check "variable cd target expands" "/tmp/repo" "${GIT_CMD_CPATH[0]}"
+
+git_cmd_scan commit 'R=/tmp/repo; cd "${R}" && git commit -m "x"'
+check "braced variable cd target expands" "/tmp/repo" "${GIT_CMD_CPATH[0]}"
+
+git_cmd_scan commit 'R=/tmp/repo; git -C "$R" commit -m "x"'
+check "variable -C path expands" "/tmp/repo" "${GIT_CMD_CPATH[0]}"
+
+git_cmd_scan commit 'R=/tmp/first; R=/tmp/second; cd "$R" && git commit -m "x"'
+check "reassignment wins" "/tmp/second" "${GIT_CMD_CPATH[0]}"
+
+# `$SP` must not be substituted inside `$SPDIR`, which is how the shell reads it.
+git_cmd_scan commit 'SP=/tmp/short; SPDIR=/tmp/long; cd "$SPDIR" && git commit -m "x"'
+check "longer name is not shadowed by a prefix" "/tmp/long" "${GIT_CMD_CPATH[0]}"
+
+# An assignment that is itself unexpanded resolves to nothing useful, so the
+# target must stay literal rather than become a wrong path.
+git_cmd_scan commit 'R=$HOME/repo; cd "$R" && git commit -m "x"'
+check "unexpanded assignment is not recorded" '$R' "${GIT_CMD_CPATH[0]}"
+
+# An assignment AFTER the use cannot have applied at cd time.
+git_cmd_scan commit 'cd "$R" && git commit -m "x"; R=/tmp/repo'
+check "later assignment does not apply retroactively" '$R' "${GIT_CMD_CPATH[0]}"
+
 git_cmd_scan commit 'cd "/tmp/my repo" && git commit -m "x"'
 check "quoted cd path keeps its space" "/tmp/my repo" "${GIT_CMD_CPATH[0]}"
 
