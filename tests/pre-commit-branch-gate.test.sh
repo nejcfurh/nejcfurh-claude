@@ -63,6 +63,24 @@ run_case "git -C feature repo allowed from main cwd" 0 "$main_repo" \
 run_case "git -C quoted feature repo allowed from main cwd" 0 "$main_repo" \
   "git -C \"$feat_repo\" commit -m \"feat: x\""
 
+# `R=<repo>; cd "$R" && git commit` is how a second repo is normally reached
+# when the shell cwd resets between calls, and the unexpanded `$R` used to make
+# the gate judge the SESSION repo's branch instead. It allowed a real commit
+# onto main from a session sitting on a feature branch.
+run_case "variable cd into a main repo blocked from feature cwd" 2 "$feat_repo" \
+  "R=$main_repo; cd \"\$R\" && git commit -m \"feat: x\""
+
+run_case "variable -C into a main repo blocked from feature cwd" 2 "$feat_repo" \
+  "R=$main_repo; git -C \"\$R\" commit -m \"feat: x\""
+
+run_case "variable cd into a feature repo still allowed from main cwd" 0 "$main_repo" \
+  "R=$feat_repo; cd \"\$R\" && git commit -m \"feat: x\""
+
+# A variable the command does not assign stays unresolvable, so the gate keeps
+# judging the cwd repo rather than inventing a target.
+run_case "unassigned variable cd falls back to the cwd repo" 2 "$main_repo" \
+  'cd "$SOMEWHERE_ELSE" && git commit -m "feat: x"'
+
 run_case "git -C main repo blocked from feature cwd" 2 "$feat_repo" \
   "git -C $main_repo commit -m \"feat: x\""
 

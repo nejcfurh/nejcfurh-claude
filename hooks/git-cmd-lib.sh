@@ -71,6 +71,71 @@ _git_cmd_tokenize() {
   '
 }
 
+# `R=/path; cd "$R" && git commit` is the commonest way a repo other than the
+# session one gets committed to, and the token holds the literal `$R`, which
+# git_cmd_repo discards — so the gate silently judged the SESSION repo's branch
+# instead of the one being committed to, and allowed a commit onto main.
+# Assignments made in the same command line are recoverable, so collect them as
+# the segments are walked and substitute them into a cd or -C target.
+# Residual, unchanged: a variable assigned in an earlier turn, `~`, and command
+# substitution still cannot be resolved here.
+GIT_CMD_VAR_NAMES=()
+GIT_CMD_VAR_VALUES=()
+
+_git_cmd_record_assign() { # _git_cmd_record_assign <token>
+  local tok="$1" name value i n
+  case "$tok" in
+    [A-Za-z_]*=*) : ;;
+    *) return 0 ;;
+  esac
+  name="${tok%%=*}"
+  value="${tok#*=}"
+  case "$name" in *[!A-Za-z0-9_]*) return 0 ;; esac
+  # A value that is itself unexpanded resolves to nothing useful, and an empty
+  # one would expand a path to a bare `/`.
+  case "$value" in *'$'* | *'`'* | '') return 0 ;; esac
+  n=${#GIT_CMD_VAR_NAMES[@]}
+  for ((i = 0; i < n; i++)); do
+    if [ "${GIT_CMD_VAR_NAMES[$i]}" = "$name" ]; then
+      GIT_CMD_VAR_VALUES[$i]="$value"
+      return 0
+    fi
+  done
+  GIT_CMD_VAR_NAMES[$n]="$name"
+  GIT_CMD_VAR_VALUES[$n]="$value"
+}
+
+# Substitute the recorded assignments into <string>. Longest name first, so
+# `$SP` is not substituted inside `$SPDIR` — which is how the shell resolves it.
+_git_cmd_expand() { # _git_cmd_expand <string>
+  local s="$1" n i j tmp k name value
+  n=${#GIT_CMD_VAR_NAMES[@]}
+  if [ "$n" -eq 0 ]; then
+    printf '%s\n' "$s"
+    return 0
+  fi
+  local -a ord=()
+  for ((i = 0; i < n; i++)); do ord[$i]=$i; done
+  for ((i = 1; i < n; i++)); do
+    for ((j = i; j > 0; j--)); do
+      if [ "${#GIT_CMD_VAR_NAMES[${ord[$j]}]}" -gt "${#GIT_CMD_VAR_NAMES[${ord[$((j - 1))]}]}" ]; then
+        tmp=${ord[$j]}
+        ord[$j]=${ord[$((j - 1))]}
+        ord[$((j - 1))]=$tmp
+      else
+        break
+      fi
+    done
+  done
+  for k in "${ord[@]}"; do
+    name=${GIT_CMD_VAR_NAMES[$k]}
+    value=${GIT_CMD_VAR_VALUES[$k]}
+    s=${s//\$\{$name\}/$value}
+    s=${s//\$$name/$value}
+  done
+  printf '%s\n' "$s"
+}
+
 # Inspect one segment's tokens and record it when it is `git … <want> …`.
 # <cwd> is the directory a preceding `cd` put this segment in, used when the
 # invocation names no -C/--git-dir of its own.
@@ -106,6 +171,7 @@ _git_cmd_segment() { # _git_cmd_segment <want> <cwd> <token…>
         # First bareword after the git-level options is the subcommand.
         if [ "$tok" = "$want" ]; then
           [ -n "$cpath" ] || cpath="$cwd"
+          cpath=$(_git_cmd_expand "$cpath")
           # shellcheck disable=SC2034  # read by the sourcing gate, not here
           GIT_CMD_CPATH[$GIT_CMD_N]="$cpath"
           # Newline-joined, not space-joined: no token can contain a newline (the
@@ -136,8 +202,11 @@ git_cmd_scan() { # git_cmd_scan <subcommand> <command-string>
   GIT_CMD_CPATH=()
   # shellcheck disable=SC2034
   GIT_CMD_ARGS=()
+  GIT_CMD_VAR_NAMES=()
+  GIT_CMD_VAR_VALUES=()
 
   local -a toks=()
+  local tok
   # `cd <path> &&` moves the directory the following commands run in, so a git
   # invocation naming no -C inherits it. The stack scopes that to the group it
   # happened in: without it, `(cd other && git status); git commit` would judge
@@ -151,9 +220,16 @@ git_cmd_scan() { # git_cmd_scan <subcommand> <command-string>
       T*) toks[${#toks[@]}]="${line#T}"; continue ;;
     esac
     if [ "${#toks[@]}" -gt 0 ]; then
+      # Harvest before inspecting, so `R=/x git -C "$R" commit` resolves too.
+      for tok in "${toks[@]}"; do
+        case "$tok" in
+          [A-Za-z_]*=*) _git_cmd_record_assign "$tok" ;;
+          *) break ;;
+        esac
+      done
       _git_cmd_segment "$want" "$cdctx" "${toks[@]}"
       if [ "${toks[0]}" = "cd" ] && [ -n "${toks[1]:-}" ]; then
-        cdctx="${toks[1]}"
+        cdctx=$(_git_cmd_expand "${toks[1]}")
       fi
       toks=()
     fi
@@ -170,7 +246,15 @@ git_cmd_scan() { # git_cmd_scan <subcommand> <command-string>
   done <<EOF
 $(printf '%s' "$cmdstr" | _git_cmd_tokenize)
 EOF
-  [ "${#toks[@]}" -eq 0 ] || _git_cmd_segment "$want" "$cdctx" "${toks[@]}"
+  if [ "${#toks[@]}" -gt 0 ]; then
+    for tok in "${toks[@]}"; do
+      case "$tok" in
+        [A-Za-z_]*=*) _git_cmd_record_assign "$tok" ;;
+        *) break ;;
+      esac
+    done
+    _git_cmd_segment "$want" "$cdctx" "${toks[@]}"
+  fi
   return 0
 }
 
