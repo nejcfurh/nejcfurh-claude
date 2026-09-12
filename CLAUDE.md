@@ -33,6 +33,7 @@ Model per phase: steps 1–2 run on Fable 5, steps 3–4 on Opus 5 (1M context).
 - **Minimal fix**: for bugs, find the root cause and state the smallest possible change first. Expand scope only if the minimal fix is provably insufficient. Never introduce new abstractions or files as part of a bug fix unless asked.
 - **Decisions**: ask before making architectural choices — never silently pick a pattern, library, or approach.
 - **Testing**: write tests when implementing a feature or fixing a bug.
+- **User's environment**: the applications the user is running are not your test environment. Scripting a GUI app they have open — retargeting a browser tab, sending keystrokes, opening documents — changes what is on their screen right now and can discard unsaved work. Drive an instance you launched yourself; if only their real application will do, ask first and say what it will do to their session.
 - **Cost**: warn before any change that increases costs (new cloud resources, paid services, upgraded tiers).
 - **Questions**: one clarifying question per turn, lead with your recommendation. See `rules/communication.md`.
 
