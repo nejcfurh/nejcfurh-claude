@@ -59,21 +59,31 @@ fi
 # as though they were new on this one.
 if [ -n "$(git -C "$repo" remote 2>/dev/null)" ]; then
   gitdir=$(git -C "$repo" rev-parse --absolute-git-dir 2>/dev/null)
-  fetch_mtime=""
   if [ -n "$gitdir" ] && [ -f "$gitdir/FETCH_HEAD" ]; then
-    fetch_mtime=$(stat -f %m "$gitdir/FETCH_HEAD" 2>/dev/null \
-      || stat -c %Y "$gitdir/FETCH_HEAD" 2>/dev/null)
-  fi
-  now=$(date +%s 2>/dev/null)
-  if [ -z "$fetch_mtime" ]; then
-    FETCH_NOTE=" fetch-age=never WARNING: no fetch recorded in this checkout - run git fetch before trusting an ahead/behind count or a three-dot diff."
-  elif [ -n "$now" ]; then
-    mins=$(( (now - fetch_mtime) / 60 ))
-    if [ "$mins" -ge 30 ]; then
-      FETCH_NOTE=" fetch-age=${mins}m WARNING: remote refs are ${mins}m old - fetch before trusting an ahead/behind count or a three-dot diff."
+    # GNU first. `stat -c` fails cleanly on BSD (illegal option, no stdout),
+    # whereas GNU reads `-f` as --file-system and answers about a filesystem
+    # rather than the file - succeeding with text that is not a timestamp.
+    fetch_mtime=$(stat -c %Y "$gitdir/FETCH_HEAD" 2>/dev/null \
+      || stat -f %m "$gitdir/FETCH_HEAD" 2>/dev/null)
+    now=$(date +%s 2>/dev/null)
+    # Only a bare integer may reach the arithmetic below. A failed expansion
+    # there would leave `mins` unset, and `set -u` would then kill a hook whose
+    # entire contract is that it never blocks and never stays silent.
+    case "$fetch_mtime" in ''|*[!0-9]*) fetch_mtime="" ;; esac
+    case "$now" in ''|*[!0-9]*) now="" ;; esac
+    if [ -z "$fetch_mtime" ] || [ -z "$now" ]; then
+      FETCH_NOTE=" fetch-age=unknown"
     else
-      FETCH_NOTE=" fetch-age=${mins}m"
+      mins=$(( (now - fetch_mtime) / 60 ))
+      [ "$mins" -lt 0 ] && mins=0
+      if [ "$mins" -ge 30 ]; then
+        FETCH_NOTE=" fetch-age=${mins}m WARNING: remote refs are ${mins}m old - fetch before trusting an ahead/behind count or a three-dot diff."
+      else
+        FETCH_NOTE=" fetch-age=${mins}m"
+      fi
     fi
+  else
+    FETCH_NOTE=" fetch-age=never WARNING: no fetch recorded in this checkout - run git fetch before trusting an ahead/behind count or a three-dot diff."
   fi
 fi
 
