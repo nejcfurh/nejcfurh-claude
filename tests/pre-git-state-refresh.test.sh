@@ -207,7 +207,17 @@ fi
 gnubin=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
 cat > "$gnubin/stat" <<'GNUSTUB'
 #!/bin/bash
-if [ "$1" = "-c" ]; then /usr/bin/stat -f "%m" "$3" 2>/dev/null; exit $?; fi
+# Presents GNU semantics whatever the host's native flavour is: `-c FORMAT FILE`
+# reads the file, `-f` is --file-system and so cannot take a format string. The
+# absolute path avoids recursing into this stub. The delegation tries both
+# syntaxes so the stub itself is portable - hardcoding one makes this case pass
+# on the runner that shares that flavour and fail on the other.
+if [ "$1" = "-c" ]; then
+  v=$(/usr/bin/stat -c %Y "$3" 2>/dev/null || /usr/bin/stat -f %m "$3" 2>/dev/null)
+  [ -n "$v" ] || exit 1
+  printf '%s\n' "$v"
+  exit 0
+fi
 if [ "$1" = "-f" ]; then
   echo "  File: \"$3\""
   echo "    ID: 0 Namelen: 255    Type: ext2/ext3"
