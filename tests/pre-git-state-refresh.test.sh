@@ -135,6 +135,113 @@ check "gh pr resolves branch from payload.cwd, not the process cwd" \
   "branch=feat/worktree no-open-pr" "$out"
 rm -rf "$wrongrepo" "$rightrepo" "$stub" "$cache"
 
+# --- fetch-age -------------------------------------------------------------
+# The remote-ref age is appended to every emitted line so a stale checkout can
+# never be read as current. It is local-only (a stat on FETCH_HEAD) and sits
+# outside the PR cache, because staleness is the one thing it exists to report.
+agerepo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+stub=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+printf '#!/bin/bash\nexit 1\n' > "$stub/gh"
+chmod +x "$stub/gh"
+(cd "$agerepo" && git init -q -b main && git commit -q --allow-empty -m init)
+
+age_out() { # run the hook against $agerepo with a stubbed gh and a cold cache
+  jq -n --arg cmd 'git push' --arg cwd "$agerepo" \
+      '{tool_input:{command:$cmd},cwd:$cwd}' \
+    | PATH="$stub:$PATH" \
+      PR_STATE_CACHE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/hookcache.XXXXXX")" \
+      bash "$SUT" 2>/dev/null
+}
+
+absent() { # absent <name> <substring> <output> — substring gone, but a line WAS emitted
+  # A bare "substring is missing" check passes just as happily when the hook
+  # emitted nothing at all, which is how a crashed hook certifies itself green.
+  # So silence is a failure here, not a pass.
+  local ctx
+  ctx=$(printf '%s' "$3" | jq -r '.hookSpecificOutput.additionalContext // ""' 2>/dev/null)
+  if [ -z "$ctx" ]; then
+    echo "FAIL: $1 — no context emitted at all (a negative assertion must not pass on silence)"
+    fail=$((fail + 1))
+  elif printf '%s' "$ctx" | grep -q "$2"; then
+    echo "FAIL: $1 — did not expect '$2' in: $ctx"
+    fail=$((fail + 1))
+  else
+    echo "PASS: $1"
+    pass=$((pass + 1))
+  fi
+}
+
+# A repo with no remote has no fetch that could be stale, so the note stays off
+# entirely — otherwise every local-only repo carries a permanent false warning.
+out=$(age_out)
+check "no-remote repo still reports PR state" "no-open-pr" "$out"
+absent "no-remote repo omits fetch-age" "fetch-age" "$out"
+
+git -C "$agerepo" remote add origin https://example.invalid/x.git
+
+# A remote that has never been fetched is the worst case, not the quiet one.
+check "remote but never fetched warns" "fetch-age=never WARNING" "$(age_out)"
+
+# Fresh fetch: reported, never warned. Warning on every push would be noise that
+# trains the reader to skip the line.
+touch "$agerepo/.git/FETCH_HEAD"
+out=$(age_out)
+check "fresh fetch reports an age" "fetch-age=0m" "$out"
+absent "fresh fetch does not warn" "WARNING" "$out"
+
+# Past the threshold it must warn — this is the state that makes a three-dot
+# diff or an ahead/behind count untrustworthy.
+if touch -t "$(date -v-90M +%Y%m%d%H%M 2>/dev/null || date -d '-90 min' +%Y%m%d%H%M)" \
+     "$agerepo/.git/FETCH_HEAD" 2>/dev/null; then
+  check "stale fetch warns" "fetch-age=90m WARNING" "$(age_out)"
+else
+  echo "SKIP: stale fetch warns (no portable 'touch -t' here)"
+fi
+
+# The two stat flavours disagree in a way that is silent and platform-split:
+# GNU reads `-f` as --file-system, so `stat -f %m FILE` answers about a
+# filesystem instead of the file and puts non-numeric text on stdout. Feeding
+# that to arithmetic leaves the counter unset, and `set -u` then kills a hook
+# whose whole contract is that it never blocks. Simulate the GNU ordering here
+# so the macOS runner covers the Linux path rather than only its own.
+gnubin=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+cat > "$gnubin/stat" <<'GNUSTUB'
+#!/bin/bash
+# Presents GNU semantics whatever the host's native flavour is: `-c FORMAT FILE`
+# reads the file, `-f` is --file-system and so cannot take a format string. The
+# absolute path avoids recursing into this stub. The delegation tries both
+# syntaxes so the stub itself is portable - hardcoding one makes this case pass
+# on the runner that shares that flavour and fail on the other.
+if [ "$1" = "-c" ]; then
+  v=$(/usr/bin/stat -c %Y "$3" 2>/dev/null || /usr/bin/stat -f %m "$3" 2>/dev/null)
+  [ -n "$v" ] || exit 1
+  printf '%s\n' "$v"
+  exit 0
+fi
+if [ "$1" = "-f" ]; then
+  echo "  File: \"$3\""
+  echo "    ID: 0 Namelen: 255    Type: ext2/ext3"
+  echo "stat: cannot read file system information for '$2'" >&2
+  exit 1
+fi
+exec /usr/bin/stat "$@"
+GNUSTUB
+chmod +x "$gnubin/stat"
+touch "$agerepo/.git/FETCH_HEAD"
+if [ -x /usr/bin/stat ]; then
+  out=$(jq -n --arg cmd 'git push' --arg cwd "$agerepo" \
+      '{tool_input:{command:$cmd},cwd:$cwd}' \
+    | PATH="$gnubin:$stub:$PATH" \
+      PR_STATE_CACHE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/hookcache.XXXXXX")" \
+      bash "$SUT" 2>/dev/null)
+  check "a foreign stat flavour still emits a line" "[pr-state]" "$out"
+  absent "a foreign stat flavour does not kill the hook" "fetch-age=unknown" "$out"
+else
+  echo "SKIP: foreign stat flavour (no /usr/bin/stat to delegate to)"
+fi
+
+rm -rf "$agerepo" "$stub" "$gnubin"
+
 echo ""
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]

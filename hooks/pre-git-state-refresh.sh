@@ -5,9 +5,14 @@
 
 set -u
 
+# Appended by emit() to every line, cached or fresh. Remote-tracking refs only
+# move on fetch, so their age bounds how far any ahead/behind count or three-dot
+# diff can be trusted - which is why this is computed outside the PR cache below.
+FETCH_NOTE=""
+
 # Print the context line in the hook JSON envelope and exit.
 emit() {
-  jq -n --arg ctx "$1" \
+  jq -n --arg ctx "$1$FETCH_NOTE" \
     '{hookSpecificOutput:{hookEventName:"PreToolUse",additionalContext:$ctx}}' 2>/dev/null
   exit 0
 }
@@ -46,6 +51,41 @@ elif [ -n "${CLAUDE_PROJECT_DIR:-}" ] && git -C "$CLAUDE_PROJECT_DIR" rev-parse 
   repo="$CLAUDE_PROJECT_DIR"
 fi
 [ -n "$repo" ] || emit "[pr-state] unavailable=not-a-repo"
+
+# How long ago this checkout last fetched. A local stat, so it costs no latency
+# and never needs the network. It matters because every "is my branch current"
+# answer reads the remote-tracking refs: a three-dot diff resolves its merge-base
+# from them, so a stale ref reports commits that are already in the base branch
+# as though they were new on this one.
+if [ -n "$(git -C "$repo" remote 2>/dev/null)" ]; then
+  gitdir=$(git -C "$repo" rev-parse --absolute-git-dir 2>/dev/null)
+  if [ -n "$gitdir" ] && [ -f "$gitdir/FETCH_HEAD" ]; then
+    # GNU first. `stat -c` fails cleanly on BSD (illegal option, no stdout),
+    # whereas GNU reads `-f` as --file-system and answers about a filesystem
+    # rather than the file - succeeding with text that is not a timestamp.
+    fetch_mtime=$(stat -c %Y "$gitdir/FETCH_HEAD" 2>/dev/null \
+      || stat -f %m "$gitdir/FETCH_HEAD" 2>/dev/null)
+    now=$(date +%s 2>/dev/null)
+    # Only a bare integer may reach the arithmetic below. A failed expansion
+    # there would leave `mins` unset, and `set -u` would then kill a hook whose
+    # entire contract is that it never blocks and never stays silent.
+    case "$fetch_mtime" in ''|*[!0-9]*) fetch_mtime="" ;; esac
+    case "$now" in ''|*[!0-9]*) now="" ;; esac
+    if [ -z "$fetch_mtime" ] || [ -z "$now" ]; then
+      FETCH_NOTE=" fetch-age=unknown"
+    else
+      mins=$(( (now - fetch_mtime) / 60 ))
+      [ "$mins" -lt 0 ] && mins=0
+      if [ "$mins" -ge 30 ]; then
+        FETCH_NOTE=" fetch-age=${mins}m WARNING: remote refs are ${mins}m old - fetch before trusting an ahead/behind count or a three-dot diff."
+      else
+        FETCH_NOTE=" fetch-age=${mins}m"
+      fi
+    fi
+  else
+    FETCH_NOTE=" fetch-age=never WARNING: no fetch recorded in this checkout - run git fetch before trusting an ahead/behind count or a three-dot diff."
+  fi
+fi
 
 command -v gh >/dev/null 2>&1 || emit "[pr-state] unavailable=no-gh"
 

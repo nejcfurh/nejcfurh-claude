@@ -15,6 +15,10 @@ The baseline is the surrounding code — match its comment density and idiom. Wh
 
 Prefer one line. Multi-line only when the WHY genuinely needs it.
 
+## Keep the ones you have true
+
+**When you change a value, a name or a behaviour, read the comment directly above it in the same edit.** A stale comment is worse than no comment: it is written in an authoritative voice, it contradicts the line underneath it, and the next reader has no way to tell which of the two to believe. This is the most common way a comment becomes a lie, because the edit that invalidates it is usually a one-token change that felt too small to look around — a threshold, a unit, a renamed constant. Make it true or delete it before moving on; do not leave it for the review, because a reviewer reading the new value will assume the sentence above it was checked.
+
 ## Leave these out, even where neighbouring code has them
 
 - **WHAT-restating comments** — anything paraphrasing the next line (`// increment counter` above `counter++`).
