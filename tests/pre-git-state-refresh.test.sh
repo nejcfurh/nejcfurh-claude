@@ -135,6 +135,63 @@ check "gh pr resolves branch from payload.cwd, not the process cwd" \
   "branch=feat/worktree no-open-pr" "$out"
 rm -rf "$wrongrepo" "$rightrepo" "$stub" "$cache"
 
+# --- fetch-age -------------------------------------------------------------
+# The remote-ref age is appended to every emitted line so a stale checkout can
+# never be read as current. It is local-only (a stat on FETCH_HEAD) and sits
+# outside the PR cache, because staleness is the one thing it exists to report.
+agerepo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+stub=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+printf '#!/bin/bash\nexit 1\n' > "$stub/gh"
+chmod +x "$stub/gh"
+(cd "$agerepo" && git init -q -b main && git commit -q --allow-empty -m init)
+
+age_out() { # run the hook against $agerepo with a stubbed gh and a cold cache
+  jq -n --arg cmd 'git push' --arg cwd "$agerepo" \
+      '{tool_input:{command:$cmd},cwd:$cwd}' \
+    | PATH="$stub:$PATH" \
+      PR_STATE_CACHE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/hookcache.XXXXXX")" \
+      bash "$SUT" 2>/dev/null
+}
+
+absent() { # absent <name> <substring> <output> — asserts the substring is NOT present
+  if printf '%s' "$3" | grep -q "$2"; then
+    echo "FAIL: $1 — did not expect '$2'"
+    fail=$((fail + 1))
+  else
+    echo "PASS: $1"
+    pass=$((pass + 1))
+  fi
+}
+
+# A repo with no remote has no fetch that could be stale, so the note stays off
+# entirely — otherwise every local-only repo carries a permanent false warning.
+out=$(age_out)
+check "no-remote repo still reports PR state" "no-open-pr" "$out"
+absent "no-remote repo omits fetch-age" "fetch-age" "$out"
+
+git -C "$agerepo" remote add origin https://example.invalid/x.git
+
+# A remote that has never been fetched is the worst case, not the quiet one.
+check "remote but never fetched warns" "fetch-age=never WARNING" "$(age_out)"
+
+# Fresh fetch: reported, never warned. Warning on every push would be noise that
+# trains the reader to skip the line.
+touch "$agerepo/.git/FETCH_HEAD"
+out=$(age_out)
+check "fresh fetch reports an age" "fetch-age=0m" "$out"
+absent "fresh fetch does not warn" "WARNING" "$out"
+
+# Past the threshold it must warn — this is the state that makes a three-dot
+# diff or an ahead/behind count untrustworthy.
+if touch -t "$(date -v-90M +%Y%m%d%H%M 2>/dev/null || date -d '-90 min' +%Y%m%d%H%M)" \
+     "$agerepo/.git/FETCH_HEAD" 2>/dev/null; then
+  check "stale fetch warns" "fetch-age=90m WARNING" "$(age_out)"
+else
+  echo "SKIP: stale fetch warns (no portable 'touch -t' here)"
+fi
+
+rm -rf "$agerepo" "$stub"
+
 echo ""
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]
