@@ -79,6 +79,15 @@ case "$cmd" in
     ;;
 esac
 
+# An unnamed stash pop takes whatever is newest on a list that outlives the
+# session. Runs after the sandbox gate so a sandbox-doomed stash keeps that
+# gate's more specific message.
+case "$cmd" in
+  *stash*)
+    run_gate pre-git-stash-pop-gate.sh
+    ;;
+esac
+
 # Moving a checkout onto an existing branch carries uncommitted tracked changes
 # across silently. Runs after the sandbox gate so `checkout -b` under the sandbox
 # still gets the more actionable message; this gate allows -b entirely.
