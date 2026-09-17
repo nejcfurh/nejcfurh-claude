@@ -29,7 +29,7 @@ payload=$(cat 2>/dev/null) || exit 0
 # Runs on every Bash call, so bail on the common case with a builtin before
 # spending a jq. No redirect and no heredoc means it cannot match.
 case "$payload" in
-  *'>'* | *'<<'* | *write_text* | *writeFileSync*) : ;;
+  *'>'* | *'<<'* | *write_text* | *writeFileSync* | *'open('* | *'sed '* | *'perl '*) : ;;
   *) exit 0 ;;
 esac
 
@@ -50,9 +50,31 @@ bound='([^A-Za-z0-9]|$)'
 # The heredoc delimiter must follow its `<<` immediately: allowing space there
 # makes `grep '^<<<<<<<' some/file.ts` — hunting merge-conflict markers — read
 # as a heredoc, which was every false positive in a 6969-command replay.
+matched=0
 printf '%s' "$cmd" | grep -Eq \
   "(>>?[[:space:]]*[^[:space:]|]*${src_ext}${bound}|<<[-]?['\"]?[A-Za-z_][A-Za-z0-9_]*.*${src_ext}${bound}|(write_text|writeFileSync)[[:space:]]*\\([^)]*${src_ext}${bound}|${src_ext}['\"]*\\)[[:space:]]*\\.[[:space:]]*write_text)" \
-  || exit 0
+  && matched=1
+
+# The patterns above are line-oriented, which misses the commonest shape of all:
+# a script fed in by heredoc, where the `<<` sits on the first line and the path
+# and the write land several lines below it. Those never share a line, so nothing
+# above can see them. Re-check against the command flattened to one line, but
+# only for idioms that are unambiguously a write — a bare path plus a redirect
+# somewhere in a long script is not enough, and matching that would fire on most
+# multi-line commands ever run.
+#
+# `sed -i`/`perl -i` earn their place here too: editing a file in place skips the
+# editing tools exactly as a redirect does. They are anchored to the tool name so
+# that `grep -i`, by far the more common flag, cannot match.
+if [ "$matched" = "0" ]; then
+  flat=$(printf '%s' "$cmd" | tr '\n' ' ')
+  write_idiom="((io\\.)?open[[:space:]]*\\([^)]*,[[:space:]]*['\"][rab+]*w|(^|[[:space:]])(sed|perl)[[:space:]]+(-[a-zA-Z]*[[:space:]]+)*-[a-zA-Z]*i([[:space:]]|$))"
+  printf '%s' "$flat" | grep -Eq "${src_ext}${bound}" \
+    && printf '%s' "$flat" | grep -Eq "$write_idiom" \
+    && matched=1
+fi
+
+[ "$matched" = "1" ] || exit 0
 
 # Scratch paths are the legitimate home for throwaway scripts.
 printf '%s' "$cmd" | grep -Eq '(/tmp/|/private/tmp/|\$TMPDIR|/scratchpad/|\.log\b)' && exit 0
