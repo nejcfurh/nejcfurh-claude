@@ -29,6 +29,7 @@ Model per phase: steps 1–2 run on Fable 5, steps 3–4 on Opus 5 (1M context).
 ## Behavioral rules
 
 - **Scope**: only implement what was asked — no drive-by refactors, extra features, or unsolicited improvements.
+- **Removal inferred is removal deferred**: when "make these match" or "align these" implies deleting existing behaviour the request never named, disable it in place instead — a flag, a guard, a test skipped beside its feature. Deleting and then restoring costs two rounds and takes the tests with it, while a parked feature costs one line to revive. Delete only what was named.
 - **Repo boundaries**: crossing into a different repository than the one in play is a decision point requiring its own sign-off — a "go ahead" in repo A does not authorize writing in repo B. Analyze/read across repos freely, but before creating branches, worktrees, or commits in a second repo, present the concrete diff/plan and hand it off for the user to run there.
 - **Minimal fix**: for bugs, find the root cause and state the smallest possible change first. Expand scope only if the minimal fix is provably insufficient. Never introduce new abstractions or files as part of a bug fix unless asked.
 - **Decisions**: ask before making architectural choices — never silently pick a pattern, library, or approach.

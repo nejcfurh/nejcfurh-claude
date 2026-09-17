@@ -179,6 +179,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/pre-edit-branch-drift-gate.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true",
+            "timeout": 15
+          },
+          {
+            "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/pre-write-comment-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
             "timeout": 15
           }

@@ -64,6 +64,30 @@ fires "single-file component target" 'printf "<template/>" > src/App.vue'
 fires "svelte target" 'printf "<div/>" > src/App.svelte'
 fires "esm/cjs targets" 'echo "export default {}" > config/a.mjs'
 
+# --- fires: writes whose path never shares a line with the write -------------
+# The line-oriented patterns above cannot see these. A script fed in by heredoc
+# puts `<<` on the first line and the path several lines down, which is the
+# commonest shape of all for an inline edit.
+fires "heredoc script, path on a later line" "python3 - <<'PY'
+p = 'features/a/Thing.test.tsx'
+open(p, 'w').write(body)
+PY"
+fires "python open-for-write on a .tsx file" "python3 -c \"io.open('lib/a.tsx', 'w').write(body)\""
+fires "python open-for-write, mode after other flags" "python3 -c \"open('lib/a.ts', 'rw+').write(body)\""
+
+# --- fires: in-place editors skip the editing tools the same way -------------
+fires "sed -i on a .tsx file" 'sed -i "" "s/a/b/" src/Thing.tsx'
+fires "sed with combined flags" 'sed -Ei "s/a/b/" src/Thing.ts'
+fires "perl -pi on a .ts file" 'perl -pi -e "s/a/b/" src/Thing.ts'
+
+# --- quiet: the flag that looks like an in-place edit but is not --------------
+# `grep -i` is far more common than `sed -i`, so the in-place patterns are
+# anchored to the tool name. `open` as a shell command opens a file for reading.
+quiet "grep -i on a source file" 'grep -i "thing" src/Thing.tsx'
+quiet "sed without -i" 'sed -n "1,5p" src/Thing.tsx'
+quiet "shell open on a source file" 'open src/Thing.tsx'
+quiet "open-for-write on a non-source file" "python3 -c \"open('data.csv', 'w').write(body)\""
+
 # --- quiet: scratch paths are where throwaway scripts belong ------------------
 quiet "temp dir absolute" 'cat > /tmp/claude/probe.ts <<EOF
 x

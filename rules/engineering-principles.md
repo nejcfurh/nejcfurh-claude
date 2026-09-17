@@ -25,6 +25,14 @@ Lowering a count is behaviour-neutral by definition, which sets the bar for prov
 
 Implement features as thin end-to-end slices (UI + API + DB + test for one path), not horizontal layers ("all models first, then all routes"). If a slice is too large, narrow the scope — fewer fields, simpler validation.
 
+## A handed file may be a model, not the target
+
+When a request supplies standalone artifacts — a mockup, an exported page, a prototype, a design file — and the working directory is a codebase, establish which of the two is the deliverable **before editing either**. Paths in the prompt read as the target, and they are often only the reference.
+
+The tell is any sentence locating the thing somewhere else: "the design we have in the app", "like the one in production", "match what's live". That phrasing says an implementation already exists and the handed file describes it. Treat it as a question to resolve, not context to note and move past — one search for the artifact's distinctive strings across the repo settles it.
+
+Getting this wrong is unusually expensive because nothing fails. Editing the artifact succeeds, the diff looks right, and every check passes, since the file is not part of any build. The mistake stays invisible until somebody asks to see the result running — by which point the work has to be redone against the real target, and the artifact edits have to be reverted or explained.
+
 ## Chesterton's Fence
 
 Before removing or changing existing code, understand why it exists: `git blame`, the introducing commit message, linked PRs. If no context exists and the code seems unnecessary, ask — don't silently remove.
