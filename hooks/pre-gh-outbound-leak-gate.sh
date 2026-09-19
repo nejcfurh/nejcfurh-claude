@@ -40,7 +40,38 @@ case "$cmd" in
   *) exit 0 ;;
 esac
 
-repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+# A leading `cd <path> &&` moves the directory the gh command runs in, and the
+# payload's cwd is the session's, not that one. Without this the gate resolves the
+# wrong repo and goes inert exactly when the command is reaching into the guarded
+# one — a false ALLOW, and the failure mode that made the first live test pass
+# a body it should have blocked.
+# Parameter expansion rather than sed: BSD sed has no \| alternation in a basic
+# regex, so the portable-looking version silently matched nothing here.
+cd_target=""
+case "$cmd" in
+  "cd "*)
+    cd_target=${cmd#cd }
+    cd_target=${cd_target%%&&*}
+    cd_target=${cd_target%%;*}
+    cd_target=${cd_target% }
+    cd_target=${cd_target#\"}
+    cd_target=${cd_target%\"}
+    cd_target=${cd_target#\'}
+    cd_target=${cd_target%\'}
+    ;;
+esac
+# An unexpanded variable in the path cannot be resolved here.
+case "$cd_target" in *'$'*) cd_target="" ;; esac
+
+repo_root=""
+for candidate in "$cd_target" "$PWD"; do
+  [ -n "$candidate" ] || continue
+  [ -d "$candidate" ] || continue
+  if root=$(git -C "$candidate" rev-parse --show-toplevel 2>/dev/null); then
+    repo_root="$root"
+    break
+  fi
+done
 [ -n "$repo_root" ] || exit 0
 [ -f "$repo_root/.leak-guard" ] || exit 0
 
@@ -107,7 +138,7 @@ fi
   echo "Blocked: this repo carries .leak-guard, and the text about to be published matches:${hits}"
   echo ""
   echo "  ticket-key      an identifier of the form ABC-123"
-  echo "  private-pattern an entry in ${patterns_file/#$HOME/\~}"
+  echo "  private-pattern an entry in ${patterns_file/#$HOME/~}"
   echo ""
   echo "The matched text is deliberately not shown — echoing it here would be the same disclosure."
   echo "Generalize it: 'a ticket', 'a client project', 'an internal convention'. A lesson that needs"

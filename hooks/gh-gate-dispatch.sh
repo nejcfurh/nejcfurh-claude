@@ -58,7 +58,14 @@ esac
 
 # Any command that publishes text to a shared surface, in a repo that carries
 # .leak-guard. Inert everywhere else, so it never fires in a client's own repo.
-run_gate pre-gh-outbound-leak-gate.sh
+# Routed rather than unconditional: this dispatcher runs on every Bash call, so an
+# unrouted gate spends a process spawn on every `ls`.
+case "$cmd" in
+  *"gh pr create"* | *"gh pr edit"* | *"gh pr comment"* | *"gh issue create"* | *"gh issue edit"* | \
+    *"gh issue comment"* | *"gh release create"* | *"gh api"*)
+    run_gate pre-gh-outbound-leak-gate.sh
+    ;;
+esac
 
 # `gh stack init|add` can stage and commit with -A/-m. That commit line contains
 # no `commit` substring, so git-gate-dispatch.sh never routes it to the commit

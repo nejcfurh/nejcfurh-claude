@@ -64,6 +64,20 @@ run_case "unrelated command is ignored" 0 \
 SKIP_LEAK_GATE=1 run_case "bypass env var disables the gate" 0 \
   'gh pr create --base main --title "ABC-1 leak" --body "x"'
 
+# The command may cd into the guarded repo from elsewhere; the payload's cwd is the
+# session's, not that one. Missing this is a false ALLOW at exactly the moment the
+# command is reaching into the repo being protected.
+OUTSIDE="$(mktemp -d "${TMPDIR:-/tmp}/leakgate-outside.XXXXXX")"
+(
+  cd "$OUTSIDE" || exit 1
+  git init -q . 2>/dev/null
+  jq -n --arg cmd "cd $FIXTURE && gh pr create --base main --body-file body-ticket.md" \
+    '{tool_input:{command:$cmd}}' | bash "$SUT" >/dev/null 2>&1
+  [ $? -eq 2 ]
+) && { echo "PASS: leading cd into the guarded repo is honoured (exit 2)"; pass=$((pass + 1)); } ||
+  { echo "FAIL: leading cd into the guarded repo is honoured"; fail=$((fail + 1)); }
+rm -rf "$OUTSIDE"
+
 # The marker is what scopes this to repos meant to stay generic. Without it a
 # client repo naming its own client in every PR body would be blocked, which is
 # how a gate teaches its own bypass.
