@@ -115,6 +115,7 @@ case "$cmd" in
     run_gate pre-commit-coauthor-gate.sh
     run_gate pre-commit-conventional-gate.sh
     run_gate pre-commit-secret-gate.sh
+    run_gate pre-commit-leak-gate.sh
     ;;
 esac
 
