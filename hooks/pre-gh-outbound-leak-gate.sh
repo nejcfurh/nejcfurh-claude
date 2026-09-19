@@ -13,7 +13,7 @@
 # there would block normal work and teach the bypass. The marker carries no names.
 #
 # Patterns come from two places:
-#   - built in: the ticket-key shape (ABC-123), which identifies an engagement
+#   - built in: the ticket-key shape — letters, a hyphen, digits — which identifies an engagement
 #     regardless of whose it is and needs no configuration
 #   - optional: one regex per line in $CLAUDE_LEAK_PATTERNS, else
 #     $HOME/.claude/leak-patterns — private, never in any repo, `#` comments ignored
@@ -73,9 +73,11 @@ for candidate in "$cd_target" "$PWD"; do
   fi
 done
 [ -n "$repo_root" ] || exit 0
-[ -f "$repo_root/.leak-guard" ] || exit 0
 
-patterns_file="${CLAUDE_LEAK_PATTERNS:-$HOME/.claude/leak-patterns}"
+# shellcheck source=hooks/leak-patterns-lib.sh
+. "$(dirname "$0")/leak-patterns-lib.sh"
+
+leak_guard_repo "$repo_root" || exit 0
 
 # Body files: `--body-file X`, `-F body=@X`, `--field body=@X`. Read them too, since
 # the identifying text usually lives there rather than on the command line.
@@ -108,41 +110,14 @@ for target in $targets; do
 $(cat "$candidate" 2>/dev/null)"
 done
 
-hits=""
-add_hit() { # add_hit <class>
-  case "$hits" in
-    *"$1"*) ;;
-    *) hits="$hits $1" ;;
-  esac
-}
-
-# Built in: a ticket key identifies an engagement whoever owns it. The gate's own
-# marker filename and this hook's name are excluded so it can describe itself.
-if printf '%s' "$scan_text" | grep -qE '\b[A-Z]{2,10}-[0-9]+\b'; then
-  add_hit "ticket-key"
-fi
-
-if [ -f "$patterns_file" ]; then
-  while IFS= read -r pattern; do
-    case "$pattern" in '' | '#'*) continue ;; esac
-    if printf '%s' "$scan_text" | grep -qiwE "$pattern" 2>/dev/null; then
-      add_hit "private-pattern"
-    fi
-  done <"$patterns_file"
-fi
-
+hits=$(leak_scan "$scan_text")
 [ -n "$hits" ] || exit 0
 
 "$(dirname "$0")/record-gate-block.sh" "pre-gh-outbound-leak-gate" "$payload" 2>/dev/null || true
 {
-  echo "Blocked: this repo carries .leak-guard, and the text about to be published matches:${hits}"
+  echo "Blocked: this repo carries .leak-guard, and the text about to be published matches:$hits"
   echo ""
-  echo "  ticket-key      an identifier of the form ABC-123"
-  echo "  private-pattern an entry in ${patterns_file/#$HOME/~}"
-  echo ""
-  echo "The matched text is deliberately not shown — echoing it here would be the same disclosure."
-  echo "Generalize it: 'a ticket', 'a client project', 'an internal convention'. A lesson that needs"
-  echo "the original named is not yet a rule."
+  leak_block_explainer
   echo ""
   echo "Bypass (human-only): '!'-prefix the command, or export SKIP_LEAK_GATE=1 in your shell."
 } >&2

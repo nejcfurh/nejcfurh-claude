@@ -5,8 +5,15 @@
 # a client or product name, a ticket identifier, an internal repo, service, table
 # or flag name, or a path that exists only in someone else's codebase.
 #
-# The gate blocks the ticket-key shape (ABC-123) with no configuration. For names,
+# The gate blocks the ticket-key shape — letters, a hyphen, digits — with no configuration. For names,
 # put one regex per line in ~/.claude/leak-patterns, which is private and lives
 # outside every repo — the patterns are themselves the thing being protected.
 #
 # A lesson that needs the original named is not yet a rule. Generalize it.
+#
+# `allow: <glob>` exempts a path from the staged-CONTENT scan. Commit messages are
+# never exempt. Only the gates' own suites belong here: a matcher cannot be tested
+# without fixtures shaped like the thing it matches, and blocking the commit that
+# adds them would leave the bypass as the only way forward.
+allow: tests/pre-commit-leak-gate.test.sh
+allow: tests/pre-gh-outbound-leak-gate.test.sh
