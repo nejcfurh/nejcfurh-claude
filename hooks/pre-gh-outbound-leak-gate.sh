@@ -100,7 +100,10 @@ for word in $cmd; do
   prev="$word"
 done
 
-scan_text=$(printf '%s\n' "$cmd")
+# Paths in the command are not prose. A body file living under a project directory,
+# or a command run inside one, names that project in an argument — scanning those
+# verbatim blocks every publish from the guarded repo. Tokens with a slash are paths.
+scan_text=$(printf '%s' "$cmd" | tr ' ' '\n' | grep -v '/' | tr '\n' ' ')
 for target in $targets; do
   [ -n "$target" ] || continue
   candidate="$target"
