@@ -19,6 +19,12 @@ PATTERNS="$FIXTURE/leak-patterns"
 printf '%s\n' '# private list' 'acmecorp' >"$PATTERNS"
 export CLAUDE_LEAK_PATTERNS="$PATTERNS"
 
+# Derived terms come from the real project list otherwise, which would make these
+# suites depend on whatever the developer happens to have checked out.
+PROJECTS="$FIXTURE/projects"
+mkdir -p "$PROJECTS/-Users-x-Development-Contoso-widgetworks"
+export CLAUDE_PROJECTS_DIR="$PROJECTS"
+
 pass=0
 fail=0
 
@@ -102,6 +108,25 @@ run_case "an allowed path does not exempt the commit message" 2 'git commit -m "
 git reset -q
 stage tests/not-allowed.sh 'run_case "x" 2 "ABC-1234"'
 run_case "a path outside the allow list is still scanned" 2 'git commit -m "hooks: add a gate"'
+
+# A project name is derived from the project list with no configuration, which is
+# the point: a new engagement is covered the day work starts, not when somebody
+# remembers to add it.
+git reset -q
+stage vendor.sh 'const owner = "widgetworks";'
+run_case "a derived project name in staged content is blocked" 2 'git commit -m "hooks: add a gate"'
+run_case "a derived project name in the message is blocked" 2 'git commit -m "hooks: fix Contoso build"'
+
+git reset -q
+stage generic.sh 'const owner = "a client project";'
+run_case "generic prose is not caught by derivation" 0 'git commit -m "hooks: sharpen a rule"'
+
+# A command run inside a project names that project in its own path argument. If
+# that counts as a leak the gate blocks every commit in the repo it guards.
+git reset -q
+stage plain.sh 'const x = 1;'
+run_case "a project name in the command's own path is not a leak" 0 \
+  "cd /Users/x/Development/Contoso/widgetworks && git commit -m 'hooks: a change'"
 
 echo ""
 echo "$pass passed, $fail failed"

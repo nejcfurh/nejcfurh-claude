@@ -50,9 +50,13 @@ done < <(leak_allow_globs "$root")
 staged=$(git -C "$repo" diff --cached -- "${pathspec[@]}" 2>/dev/null |
   grep '^+' | grep -v '^+++')
 
-# The message is scanned whether or not any path is exempt.
+# The message is scanned whether or not any path is exempt — but not the paths in
+# the command. A command run inside a project necessarily names that project in its
+# own `cd` or `git -C` argument, so scanning them verbatim blocks every commit in
+# the guarded repo. Tokens containing a slash are paths, not prose.
+cmd_prose=$(printf '%s' "$cmd" | tr ' ' '\n' | grep -v '/' | tr '\n' ' ')
 hits=$(leak_scan "$staged
-$cmd")
+$cmd_prose")
 
 [ -n "$hits" ] || exit 0
 

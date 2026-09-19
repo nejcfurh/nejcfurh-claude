@@ -5,9 +5,10 @@
 # a client or product name, a ticket identifier, an internal repo, service, table
 # or flag name, or a path that exists only in someone else's codebase.
 #
-# The gate blocks the ticket-key shape — letters, a hyphen, digits — with no configuration. For names,
-# put one regex per line in ~/.claude/leak-patterns, which is private and lives
-# outside every repo — the patterns are themselves the thing being protected.
+# It blocks two classes with no configuration: the ticket-key shape (letters, a
+# hyphen, digits) and the names of the projects you work in, derived from the list
+# the harness already maintains — so a new engagement is covered the day it starts.
+# ~/.claude/leak-patterns is optional, for a name no directory spells out.
 #
 # A lesson that needs the original named is not yet a rule. Generalize it.
 #

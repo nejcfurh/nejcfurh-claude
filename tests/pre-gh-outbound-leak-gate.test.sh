@@ -17,6 +17,12 @@ PATTERNS="$FIXTURE/leak-patterns"
 printf '%s\n' '# private list' 'acmecorp' >"$PATTERNS"
 export CLAUDE_LEAK_PATTERNS="$PATTERNS"
 
+# Derived terms come from the real project list otherwise, which would make these
+# suites depend on whatever the developer happens to have checked out.
+PROJECTS="$FIXTURE/projects"
+mkdir -p "$PROJECTS/-Users-x-Development-Contoso-widgetworks"
+export CLAUDE_PROJECTS_DIR="$PROJECTS"
+
 pass=0
 fail=0
 
