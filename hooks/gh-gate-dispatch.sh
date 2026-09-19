@@ -56,6 +56,10 @@ case "$cmd" in
   *"gh pr create"*) run_gate pre-pr-test-gate.sh ;;
 esac
 
+# Any command that publishes text to a shared surface, in a repo that carries
+# .leak-guard. Inert everywhere else, so it never fires in a client's own repo.
+run_gate pre-gh-outbound-leak-gate.sh
+
 # `gh stack init|add` can stage and commit with -A/-m. That commit line contains
 # no `commit` substring, so git-gate-dispatch.sh never routes it to the commit
 # gates — this gate refuses the shortcut and sends the content back through
