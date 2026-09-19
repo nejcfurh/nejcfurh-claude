@@ -17,6 +17,12 @@ PATTERNS="$FIXTURE/leak-patterns"
 printf '%s\n' '# private list' 'acmecorp' >"$PATTERNS"
 export CLAUDE_LEAK_PATTERNS="$PATTERNS"
 
+# Derived terms come from the real project list otherwise, which would make these
+# suites depend on whatever the developer happens to have checked out.
+PROJECTS="$FIXTURE/projects"
+mkdir -p "$PROJECTS/-Users-x-Development-Contoso-widgetworks"
+export CLAUDE_PROJECTS_DIR="$PROJECTS"
+
 pass=0
 fail=0
 
@@ -91,6 +97,11 @@ unset CLAUDE_LEAK_PATTERNS
 export CLAUDE_LEAK_PATTERNS="$FIXTURE/does-not-exist"
 run_case "built-in ticket class still fires with no private list" 2 \
   'gh pr create --base main --title "x" --body-file body-ticket.md'
+
+# A body file under a project directory names that project in its path. If that
+# counts as a leak, nothing can ever be published from the guarded repo.
+run_case "a project name in a path argument is not a leak" 0 \
+  "gh pr create --base main --title 'rules: x' --body-file /Users/x/Development/Contoso/widgetworks/body-clean.md"
 
 echo ""
 echo "$pass passed, $fail failed"
