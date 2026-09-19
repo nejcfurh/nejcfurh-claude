@@ -1,0 +1,12 @@
+# Presence of this file turns on hooks/pre-gh-outbound-leak-gate.sh for this repo.
+#
+# This repo is shared, outlives any single engagement, and may be public. Nothing
+# published from it — PR titles and bodies, issue text, release notes — may carry
+# a client or product name, a ticket identifier, an internal repo, service, table
+# or flag name, or a path that exists only in someone else's codebase.
+#
+# The gate blocks the ticket-key shape (ABC-123) with no configuration. For names,
+# put one regex per line in ~/.claude/leak-patterns, which is private and lives
+# outside every repo — the patterns are themselves the thing being protected.
+#
+# A lesson that needs the original named is not yet a rule. Generalize it.
