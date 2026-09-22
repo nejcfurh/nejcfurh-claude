@@ -22,7 +22,7 @@ LEAK_STOPWORDS="users home desktop documents docs development develop dev privat
 library application support scratch workspaces workspace src code repo repos tmp temp var
 app apps web site sites api backend frontend mobile ios android server client public main
 test tests spec dist build node modules claude anthropic github gitlab com org net www
-plugins plugin studio design designs config configs hooks rules skills agents notes
+plugins plugin studio design designs config configs hooks rules skills skill agents notes
 data assets images static shared common core utils lib libs bin scripts script"
 
 # leak_derived_terms — engagement names taken from the project list the harness
