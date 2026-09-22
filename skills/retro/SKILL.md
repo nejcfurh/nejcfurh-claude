@@ -45,4 +45,8 @@ Generalize instead — "a client project", "a ticket", "an internal ticket-prefi
 
 **Never encode one project's convention into a global rule, gate or hook.** If it only makes sense for one codebase it belongs in that project's own config. Split every finding: the generalized lesson goes to the config repo, the specifics and evidence go to memory, which is per-project and private.
 
-Before committing, grep the staged diff **and** the commit message and PR body for the client's names and ticket pattern. The rule text is usually already clean — the commit message and PR body are where it leaks.
+Before committing, pre-flight with the gate's own matcher, never a hand-written grep: source `hooks/leak-patterns-lib.sh` and run `leak_scan` over the commit message, any PR body, and the **added** lines only (`git diff --cached | grep '^+' | grep -v '^+++'`). It reports the matched *class* and never the text, and it needs no protected name typed anywhere.
+
+Writing your own grep is the trap, and it fails three ways at once. The pattern has to spell out the very names being protected, so it discloses them into the command line and the transcript. The commit gate scans command prose as well as content, so it then blocks the commit *because of the check* — and the block names a class, not a location, so the obvious reading is that the content is dirty when it is the command that is. And a grep over the full `git diff --cached` inspects text the gate never reads, since the gate deliberately ignores deletions and context so that removing an identifier is not punished; a mismatch there invents a defect in the gate that does not exist. Scan exactly what the gate scans, with the function the gate uses.
+
+The rule text is usually already clean — the commit message and PR body are where it leaks.
