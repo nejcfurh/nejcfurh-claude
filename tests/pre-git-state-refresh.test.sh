@@ -135,6 +135,30 @@ check "gh pr resolves branch from payload.cwd, not the process cwd" \
   "branch=feat/worktree no-open-pr" "$out"
 rm -rf "$wrongrepo" "$rightrepo" "$stub" "$cache"
 
+# --- the command's own target outranks the session cwd -----------------------
+# `cd <other> && git commit` and `git -C <other> push` act on <other>, but the
+# payload cwd is still the session's checkout. Reporting that checkout's PR is
+# a false warning (another branch's MERGED state) or a missed one (the real
+# target's MERGED state never shown). Resolve the target the way the gates do.
+wrongrepo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+rightrepo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+stub=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+cache=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")
+printf '#!/bin/bash\nexit 1\n' > "$stub/gh"
+chmod +x "$stub/gh"
+(cd "$wrongrepo" && git init -q -b main && git commit -q --allow-empty -m init)
+(cd "$rightrepo" && git init -q -b feat/target && git commit -q --allow-empty -m init)
+for target_cmd in \
+  "cd $rightrepo && git commit -m x" \
+  "git -C $rightrepo push"; do
+  out=$(jq -n --arg cmd "$target_cmd" --arg cwd "$wrongrepo" \
+      '{tool_input:{command:$cmd},cwd:$cwd}' \
+    | (cd "$wrongrepo" && PATH="$stub:$PATH" PR_STATE_CACHE_DIR="$cache" bash "$SUT") 2>/dev/null)
+  check "reports the branch the command targets: ${target_cmd%% *} …" \
+    "branch=feat/target no-open-pr" "$out"
+done
+rm -rf "$wrongrepo" "$rightrepo" "$stub" "$cache"
+
 # --- fetch-age -------------------------------------------------------------
 # The remote-ref age is appended to every emitted line so a stale checkout can
 # never be read as current. It is local-only (a stat on FETCH_HEAD) and sits

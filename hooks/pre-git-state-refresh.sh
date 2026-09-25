@@ -43,9 +43,26 @@ if [ -n "$payload_cwd" ] && [ -d "$payload_cwd" ]; then
   cd "$payload_cwd" 2>/dev/null || true
 fi
 
-# Resolve the repo: cwd first, then the project dir.
+# The command's own target outranks the session cwd: `cd <other> && git commit`
+# and `git -C <other> push` act on <other>, and reporting the session checkout's
+# PR there is a false MERGED warning, or a real one never shown. Same parser the
+# gates use, so the two cannot disagree about which repo a command touches.
+# shellcheck source=hooks/git-cmd-lib.sh
+. "$(dirname "$0")/git-cmd-lib.sh"
+target=""
+for sub in commit push; do
+  git_cmd_scan "$sub" "$cmd"
+  if [ "$GIT_CMD_N" -gt 0 ]; then
+    target=$(git_cmd_repo "${GIT_CMD_CPATH[0]}") || target=""
+    break
+  fi
+done
+
+# Resolve the repo: the command's target, then cwd, then the project dir.
 repo=""
-if git -C "$PWD" rev-parse --show-toplevel >/dev/null 2>&1; then
+if [ -n "$target" ]; then
+  repo="$target"
+elif git -C "$PWD" rev-parse --show-toplevel >/dev/null 2>&1; then
   repo="$PWD"
 elif [ -n "${CLAUDE_PROJECT_DIR:-}" ] && git -C "$CLAUDE_PROJECT_DIR" rev-parse --show-toplevel >/dev/null 2>&1; then
   repo="$CLAUDE_PROJECT_DIR"
