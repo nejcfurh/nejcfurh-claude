@@ -19,6 +19,8 @@ Discovery:
 - Read `package.json` scripts to resolve what each CI step actually executes.
 - Detect the package manager from the lockfile (`package-lock.json` → npm, `yarn.lock` → yarn, `pnpm-lock.yaml` → pnpm, `bun.lockb`/`bun.lock` → bun). Never assume npm.
 - Do NOT invent checks. If CI doesn't run a formatter, don't run one. If there is no CI config, fall back to the obvious package.json scripts (`lint`, `typecheck`, `test`, `build`) and say you did so.
+- Read each job's trigger too (`on:` branches and `paths`, job-level `if:`). A job CI runs only for some changes gets a guarded plan line: run it only when `git diff --name-only origin/<base>...HEAD` matches its `paths` for the event the branch will use, and otherwise print that it was skipped and why. Never cache a path-filtered job unconditionally — it blocks pushes CI would never block, and a job that needs shared local infrastructure (a database, a container stack) fails there for reasons that have nothing to do with the branch.
+- Install steps (`npm ci`, `pnpm install --frozen-lockfile`, …) exist because CI runners start empty. Locally, guard them: skip when the installed tree already matches the lockfile, and when `node_modules` is a symlink shared between worktrees, fail with a message instead of reinstalling, since a reinstall there replaces the tree every other checkout uses.
 
 ## 2. Run the checks
 
