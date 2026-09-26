@@ -176,6 +176,11 @@
             "type": "command",
             "command": "HOOK=\"$HOME/.claude/hooks/pre-bash-tmpdir-sandbox-gate.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/pre-bash-zsh-modifier-gate.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true",
+            "timeout": 15
           }
         ]
       },
