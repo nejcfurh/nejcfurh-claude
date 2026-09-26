@@ -42,7 +42,10 @@ cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null)
 
 printf '%s' "$cmd" | grep -Eq '\$\{?TMPDIR' || exit 0
 
-cat <<'EOF'
+# shellcheck source=hooks/hook-output-lib.sh
+. "$(dirname "$0")/hook-output-lib.sh"
+
+hook_warn PreToolUse <<'EOF'
 [tmpdir-sandbox] This command runs outside the sandbox and names $TMPDIR.
 Sandboxed and unsandboxed shells resolve $TMPDIR to DIFFERENT directories, so a
 file written here is missing for a later sandboxed command, and one written by a

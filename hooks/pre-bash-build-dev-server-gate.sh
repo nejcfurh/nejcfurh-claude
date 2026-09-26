@@ -64,7 +64,10 @@ done
 
 [ -n "$listening" ] || exit 0
 
-cat <<EOF
+# shellcheck source=hooks/hook-output-lib.sh
+. "$(dirname "$0")/hook-output-lib.sh"
+
+hook_warn PreToolUse <<EOF
 [build-dev-server] A dev server is listening on:$listening — and a production
 build usually writes to the SAME output dir the dev server is serving from
 (\`.next\`, \`dist\`, \`.vite\`). Running the build now can leave that server

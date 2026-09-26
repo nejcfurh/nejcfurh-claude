@@ -20,6 +20,16 @@ trap 'rm -rf "$work"' EXIT
 pass=0
 fail=0
 
+# is_context <output> — true when the hook spoke in the JSON envelope Claude
+# Code feeds to the model. Plain stdout from a PreToolUse hook that exits 0 is
+# shown only in the transcript, so a warning printed that way never reaches the
+# model; "some output" is not enough to count as firing.
+is_context() {
+  printf '%s' "$1" | jq -e \
+    '.hookSpecificOutput.hookEventName == "PreToolUse" and (.hookSpecificOutput.additionalContext | length > 0)' \
+    >/dev/null 2>&1
+}
+
 # edit <session> <file> — runs the gate as one Write/Edit call, echoes its output
 edit() {
   jq -n --arg s "$1" --arg f "$2" '{session_id:$s, tool_input:{file_path:$f}}' \
@@ -30,6 +40,7 @@ check() {
   local name="$1" expected="$2" out="$3" rc="$4"
   local got="quiet"
   [ -n "$out" ] && got="fires"
+  [ "$got" = "fires" ] && ! is_context "$out" && got="plain text the model never sees"
   if [ "$got" = "$expected" ] && [ "$rc" = "0" ]; then
     echo "PASS: $expected — $name"
     pass=$((pass + 1))

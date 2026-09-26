@@ -24,6 +24,16 @@ cd "$(mktemp -d "${TMPDIR:-/tmp}/hooktest-cwd.XXXXXX")" || exit 1
 pass=0
 fail=0
 
+# is_context <output> — true when the hook spoke in the JSON envelope Claude
+# Code feeds to the model. Plain stdout from a PreToolUse hook that exits 0 is
+# shown only in the transcript, so a warning printed that way never reaches the
+# model; "some output" is not enough to count as firing.
+is_context() {
+  printf '%s' "$1" | jq -e \
+    '.hookSpecificOutput.hookEventName == "PreToolUse" and (.hookSpecificOutput.additionalContext | length > 0)' \
+    >/dev/null 2>&1
+}
+
 # A port nothing is on. Chosen high and fixed; the quiet cases only need the
 # gate's lsof probe to come back empty.
 CLOSED_PORT=59137
@@ -70,7 +80,7 @@ fires() {
   out=$(jq -n --arg cmd "$command" '{tool_input:{command:$cmd}}' |
     BUILD_GATE_DEV_PORTS="$OPEN_PORT" bash "$SUT" 2>/dev/null)
   rc=$?
-  if [ -n "$out" ] && [ "$rc" = "0" ]; then
+  if is_context "$out" && [ "$rc" = "0" ]; then
     echo "PASS: fires — $name"
     pass=$((pass + 1))
   else
