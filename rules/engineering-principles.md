@@ -158,6 +158,8 @@ That sets the bar for validating an interceptor: **exercise it with traffic the 
 
 **zsh is not bash about variables, and the difference fails quietly.** An unquoted `$var` holding spaces is *not* word-split, so `set -- $pair` yields one argument instead of two; use `${=var}`. And `$name:x` applies a history modifier — `$2:rate` becomes `$2` with its extension stripped, followed by `ate` — so brace every variable a colon follows: `${2}:rate`. Both produce a command that runs and does the wrong thing, which reads as a bug in the tool being driven rather than in the loop driving it; when a scripted sweep returns identical readings for every case, check the loop variables before the results.
 
+**A heredoc is only literal when its delimiter is quoted.** `<<EOF` expands the body as the shell would, so backticks run as commands and `$name` is substituted before the program you are feeding ever sees the text. Markdown is the usual casualty: a body full of `` `code` `` spans becomes a string of "command not found" errors and a document with holes in it. Write `<<'EOF'` whenever the body is meant verbatim. And chain the step that publishes a result to the step that prepares it with `&&`, never with a newline or `;`: when the preparation fails, a separate line still publishes, so the edit you meant to send is replaced by the stale version you started from, reported as success.
+
 ## Measuring a change
 
 Applies whenever a number **or a verdict** decides whether a change is good — perf work, output quality, anything tuned against a metric rather than a passing test, and any script that sweeps for a condition and reports what it found.

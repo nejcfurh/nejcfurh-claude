@@ -70,7 +70,10 @@ printf '%s' "$branch" > "$state_file" 2>/dev/null || exit 0
 [ -n "$previous" ] || exit 0
 [ "$previous" = "$branch" ] && exit 0
 
-cat <<EOF
+# shellcheck source=hooks/hook-output-lib.sh
+. "$(dirname "$0")/hook-output-lib.sh"
+
+hook_warn PreToolUse <<EOF
 [edit-branch-drift] This checkout was on '$previous' when this session last
 edited it and is on '$branch' now: $toplevel
 

@@ -79,7 +79,10 @@ fi
 # Scratch paths are the legitimate home for throwaway scripts.
 printf '%s' "$cmd" | grep -Eq '(/tmp/|/private/tmp/|\$TMPDIR|/scratchpad/|\.log\b)' && exit 0
 
-cat <<'EOF'
+# shellcheck source=hooks/hook-output-lib.sh
+. "$(dirname "$0")/hook-output-lib.sh"
+
+hook_warn PreToolUse <<'EOF'
 [shell-authored-source] This writes a source file from the shell, so anything
 the project runs on Edit/Write (formatter, linter, codegen) did not see it.
 Run the project's formatter over the file before staging it, or author it with

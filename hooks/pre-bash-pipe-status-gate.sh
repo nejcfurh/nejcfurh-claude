@@ -52,7 +52,10 @@ printf '%s' "$cmd" | grep -Eq \
   '(npm (run|ci|install|test)|npx (tsc|vitest|playwright|dbmate)|yarn (run|test)|pnpm (run|test)|vitest|jest|tsc|eslint|oxlint|oxfmt|playwright test|pytest|cargo (build|test)|go (build|test)|make|psql|pg_dump|pg_restore|dbmate|alembic|prisma migrate)' \
   || exit 0
 
-cat <<'EOF'
+# shellcheck source=hooks/hook-output-lib.sh
+. "$(dirname "$0")/hook-output-lib.sh"
+
+hook_warn PreToolUse <<'EOF'
 [pipe-status] This pipes a command whose exit status matters into a filter, so
 $? and any "exit:$?" echo will report the FILTER's status, not the command's.
 Capture it instead — `cmd > out.log 2>&1; echo "exit=$?"` then read out.log, or

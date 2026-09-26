@@ -21,12 +21,22 @@ SUT="$SCRIPT_DIR/../hooks/pre-bash-pipe-status-gate.sh"
 pass=0
 fail=0
 
+# is_context <output> — true when the hook spoke in the JSON envelope Claude
+# Code feeds to the model. Plain stdout from a PreToolUse hook that exits 0 is
+# shown only in the transcript, so a warning printed that way never reaches the
+# model; "some output" is not enough to count as firing.
+is_context() {
+  printf '%s' "$1" | jq -e \
+    '.hookSpecificOutput.hookEventName == "PreToolUse" and (.hookSpecificOutput.additionalContext | length > 0)' \
+    >/dev/null 2>&1
+}
+
 # fires <name> <command> — expects advisory output AND exit 0
 fires() {
   local name="$1" command="$2" out rc
   out=$(jq -n --arg cmd "$command" '{tool_input:{command:$cmd}}' | bash "$SUT" 2>/dev/null)
   rc=$?
-  if [ -n "$out" ] && [ "$rc" = "0" ]; then
+  if is_context "$out" && [ "$rc" = "0" ]; then
     echo "PASS: fires — $name"
     pass=$((pass + 1))
   else
