@@ -16,4 +16,4 @@ What those two sources leave out:
 - Pass the user's full question as the `query` on both calls; it drives relevance ranking, and a one-word query returns generic results.
 - Prefer exact name matches and the official package over a community fork. When the user names a version ("Next.js 15", "React 19"), use the version-specific library ID if the resolution step offers one.
 - Cite the library version in the answer, so a future reader knows which docs it came from.
-- If the MCP server is unavailable or returns nothing, fall back to `/find-docs`, which reaches the same source through the Context7 CLI.
+- If the MCP server is unavailable or returns nothing, say so and suggest the user run `/find-docs`, which reaches the same source through the Context7 CLI. It is manual-invocation only, so you cannot start it yourself.

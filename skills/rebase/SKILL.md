@@ -22,7 +22,7 @@ Rebase the current branch onto its base: $ARGUMENTS
 
 Run `git rebase origin/<base>`.
 
-**Clean path (no conflicts):** show the new commit range (`git log --oneline origin/<base>..HEAD`). If the rebase brought in changes to `package.json` or a lockfile (`git diff --name-only ORIG_HEAD HEAD`), reinstall with the project's package manager. Then run `/verify-done` and let it record the pass — a rebase always rewrites HEAD, so any earlier marker no longer matches and `pre-push-verify-gate` blocks the push with "HEAD moved since the pass". Push with `git push --force-with-lease` as its own command afterwards (set upstream if missing); `--force-with-lease` is not exempt from the gate. Prefer the lease over bare `--force`; if the lease is rejected, the remote moved — stop and report, do not retry harder.
+**Clean path (no conflicts):** show the new commit range (`git log --oneline origin/<base>..HEAD`). If the rebase brought in changes to `package.json` or a lockfile (`git diff --name-only ORIG_HEAD HEAD`), reinstall with the project's package manager. Then run `/verify-done` and let it record the pass — a rebase always rewrites HEAD, so any earlier marker no longer matches and `pre-push-verify-gate` blocks the push ("marker does not cover the commit(s) this push would publish"). Push with `git push --force-with-lease` as its own command afterwards (set upstream if missing); `--force-with-lease` is not exempt from the gate. Prefer the lease over bare `--force`; if the lease is rejected, the remote moved — stop and report, do not retry harder.
 
 **Conflict path:** resolve every conflicted commit the rebase stops on, one file at a time:
 
