@@ -2,3 +2,7 @@
 *.bak.*
 vendor/
 settings.local.json
+# Skills synced from the claude.ai org into ~/.claude/skills (a symlink to
+# skills/) — managed by Claude Code, regenerated on sync, never committed.
+skills/synced/
+skills/.trash/
