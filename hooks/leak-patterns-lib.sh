@@ -59,8 +59,11 @@ leak_derived_terms() {
 }
 
 # leak_scan <text> — prints the matched classes, space separated, or nothing.
+# With no argument it scans stdin, so `… | leak_scan` checks the piped text
+# instead of an empty string that always comes back clean.
 leak_scan() {
-  local text="$1" hits="" patterns_file
+  local text hits="" patterns_file
+  if [ $# -eq 0 ]; then text=$(cat); else text=$1; fi
   patterns_file=$(leak_patterns_file)
 
   if printf '%s' "$text" | grep -qE '\b[A-Z]{2,10}-[0-9]+\b'; then

@@ -66,6 +66,8 @@ Before running or recommending a bulk operation — a backfill, migration loop, 
 
 The same check applies below "bulk": a single scripted action that creates real records or triggers a real paid API call on shared infrastructure carries the same disclosure obligation — the trigger is "does this have a real side effect", not "how many iterations". A preview or staging environment the user just stood up is not exempt. Flag it before the first run, not after several have landed.
 
+**Pilot every item of a batch once before running the batch.** Before fanning out N slow or quota-drawing runs — headless sessions, CI jobs, paid API calls — run each distinct item once and read its duration, output size and result shape. One runaway item (a reply that writes to the output limit, a run that dies at a turn cap) otherwise multiplies into the whole batch's time and quota, and an item that cannot produce a meaningful result is only discovered after all of it was paid for.
+
 ## Copying data is a disclosure decision
 
 Pulling a dataset out of a shared environment onto someone's machine is its own decision, separate from whatever you needed it for, and it is made on what the data *contains* — so find out before describing it.
