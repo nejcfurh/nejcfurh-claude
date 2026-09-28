@@ -220,6 +220,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/post-pr-return-to-base.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true",
+            "timeout": 30
+          }
+        ]
       }
     ],
     "Notification": [
