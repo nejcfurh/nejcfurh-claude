@@ -22,16 +22,24 @@ payload() {
   jq -n --arg cmd "$1" '{tool_input:{command:$cmd}}'
 }
 
-# fires <name> <command> [shell] — expects advisory output AND exit 0
+# A PreToolUse warning reaches the model only as additionalContext in the JSON
+# envelope; plain stdout lands in the transcript alone.
+is_envelope() {
+  printf '%s' "$1" | jq -e \
+    '.hookSpecificOutput.hookEventName == "PreToolUse" and (.hookSpecificOutput.additionalContext | length > 0)' \
+    >/dev/null 2>&1
+}
+
+# fires <name> <command> [shell] — expects an additionalContext envelope AND exit 0
 fires() {
   local name="$1" out rc
   out=$(payload "$2" | SHELL="${3:-/bin/zsh}" bash "$SUT" 2>/dev/null)
   rc=$?
-  if [ -n "$out" ] && [ "$rc" = "0" ]; then
+  if is_envelope "$out" && [ "$rc" = "0" ]; then
     echo "PASS: fires — $name"
     pass=$((pass + 1))
   else
-    echo "FAIL: fires — $name (output=${#out} chars, exit $rc; expected output and exit 0)"
+    echo "FAIL: fires — $name (output=${#out} chars, exit $rc; expected a PreToolUse additionalContext envelope and exit 0)"
     fail=$((fail + 1))
   fi
 }
