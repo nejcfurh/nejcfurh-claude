@@ -48,11 +48,14 @@ match=$(printf '%s' "$unquoted" | grep -oE '\$([A-Za-z_][A-Za-z0-9_]*|[0-9]):[aA
 [ -n "$match" ] || exit 0
 
 name=${match%%:*}
-cat <<EOF
-[zsh-modifier] This command expands ${match}… — zsh reads ":${match##*:}" after an
-unbraced parameter as a history modifier and rewrites the value (":l" lowercases,
-":h" takes the head, ":a" makes it absolute), even inside double quotes. Brace the
-name — "\${${name#\$}}:…" — or spell the value out. If this text runs under bash or
-sits in a quoted heredoc, ignore this.
-EOF
+# shellcheck source=hooks/hook-output-lib.sh
+. "$(dirname "$0")/hook-output-lib.sh"
+# printf, not a heredoc: bash writes a heredoc to a temp file, and where that
+# file cannot be created the warning vanishes without an error.
+printf '%s\n' \
+  "[zsh-modifier] This command expands ${match}… — zsh reads \":${match##*:}\" after an" \
+  "unbraced parameter as a history modifier and rewrites the value (\":l\" lowercases," \
+  "\":h\" takes the head, \":a\" makes it absolute), even inside double quotes. Brace the" \
+  "name — \"\${${name#\$}}:…\" — or spell the value out. If this text runs under bash or" \
+  "sits in a quoted heredoc, ignore this." | hook_warn PreToolUse
 exit 0
