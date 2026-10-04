@@ -156,7 +156,9 @@ That sets the bar for validating an interceptor: **exercise it with traffic the 
 
 **zsh is not bash about variables, and the difference fails quietly.** An unquoted `$var` holding spaces is *not* word-split, so `set -- $pair` yields one argument instead of two; use `${=var}`. And `$name:x` applies a history modifier — `$2:rate` becomes `$2` with its extension stripped, followed by `ate` — so brace every variable a colon follows: `${2}:rate`. Both run and do the wrong thing, which reads as a bug in the tool being driven; when a scripted sweep returns identical readings for every case, check the loop variables first.
 
-**A heredoc is only literal when its delimiter is quoted.** `<<EOF` expands the body as the shell would: backticks run as commands and `$name` is substituted before your program sees the text, so a Markdown body turns into "command not found" errors and a document with holes. Write `<<'EOF'` whenever the body is meant verbatim. Chain the publishing step to the preparing step with `&&`, never a newline or `;` — when preparation fails, a separate line still publishes the stale version, reported as success.
+**A heredoc is only literal when its delimiter is quoted.** `<<EOF` expands the body as the shell would: backticks run as commands and `$name` is substituted before your program sees the text, so a Markdown body turns into "command not found" errors and a document with holes. Write `<<'EOF'` whenever the body is meant verbatim.
+
+**Chain dependent shell steps with `&&`, never `;` or a newline.** When the preparing step fails — a patch script exiting on a missing anchor, a build, a fetch — a `;`-chained capture, publish or test still runs on the stale input and reports success, so the failure surfaces later as a wrong artifact instead of a stopped chain.
 
 ## Measuring a change
 
