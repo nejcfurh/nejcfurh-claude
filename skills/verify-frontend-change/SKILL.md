@@ -17,6 +17,8 @@ Before starting a dev server or writing any workaround, check whether the app ca
 
 1. **Run it**: start the dev server (project's package manager) and open the affected page in the browser. If a browser tool is available (Chrome DevTools MCP, Playwright), drive it directly; otherwise ask the user to open the page and confirm.
 2. **Interact with the change directly**: for a new or changed control (button, input, toggle, dialog), actually use it — click, type, submit — and confirm the expected state change. Capture before/after screenshots when the change is visual.
+   - **Read each changed region cropped at native size**, not the full-page capture scaled to fit: a few pixels of misalignment, a wrap or a clipped edge disappear at thumbnail scale and are obvious to a reader at 1:1.
+   - **Where a row mixes type sizes** (a large letter or number beside smaller text, an icon beside a label), check that the text baselines line up. A flex row aligns top edges unless told to align baselines, so the larger text sits visibly low. Measure it when in doubt: a zero-height inline-block appended at the start of each text element reports its first-line baseline.
 3. **Console must be clean**: zero new errors or warnings (hydration warnings count). Check the network tab for failed or duplicate requests introduced by the change.
 4. **States, not just the happy path**: loading, empty, error, and disabled states of the changed surface; keyboard focus reaches and operates the control.
 5. **Responsive check**: verify at a mobile viewport and desktop width — layout must not break or overflow at either.

@@ -24,6 +24,10 @@ HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=git-cmd-lib.sh
 . "$HOOK_DIR/git-cmd-lib.sh"
 
+CREATE_HEAD=""
+
+# Sets CREATE_HEAD to the branch a `--head`/`-H` flag names, `owner:` prefix
+# dropped, so a create for another branch can be told apart from the checkout's.
 segment_is_pr_create() { # segment_is_pr_create <token…>
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -31,7 +35,18 @@ segment_is_pr_create() { # segment_is_pr_create <token…>
       *) break ;;
     esac
   done
-  [ "${1:-}" = "gh" ] && [ "${2:-}" = "pr" ] && [ "${3:-}" = "create" ]
+  [ "${1:-}" = "gh" ] && [ "${2:-}" = "pr" ] && [ "${3:-}" = "create" ] || return 1
+  shift 3
+  CREATE_HEAD=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --head=*) CREATE_HEAD="${1#--head=}" ;;
+      --head|-H) CREATE_HEAD="${2:-}"; shift ;;
+    esac
+    shift
+  done
+  CREATE_HEAD="${CREATE_HEAD##*:}"
+  return 0
 }
 
 # The shared tokenizer, so `gh pr create` inside a quoted --body or an echo is
@@ -72,6 +87,11 @@ dirs=$(git rev-parse --path-format=absolute --git-dir --git-common-dir 2>/dev/nu
 [ "$(printf '%s\n' "$dirs" | sed -n 1p)" = "$(printf '%s\n' "$dirs" | sed -n 2p)" ] || exit 0
 
 branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || exit 0
+
+# `gh pr view` below resolves the checked-out branch's PR, which is a different
+# PR from the one just opened when --head names another branch (a checkout on a
+# base branch that is itself the head of a release PR, say).
+[ -z "$CREATE_HEAD" ] || [ "$CREATE_HEAD" = "$branch" ] || exit 0
 
 pr=$(gh pr view --json number,state,baseRefName,headRefName 2>/dev/null) || exit 0
 state=$(printf '%s' "$pr" | jq -r '.state // empty')
