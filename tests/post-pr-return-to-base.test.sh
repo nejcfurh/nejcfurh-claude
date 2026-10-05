@@ -108,6 +108,24 @@ out=$(run_hook "$clone" "gh pr create --head other --fill")
 check "PR for a different head branch does not move the checkout" "$rc"
 teardown
 
+# The checked-out branch has its own open PR (a release PR whose head is the
+# base branch), and the command opens a PR for another branch with --head. gh pr
+# view resolves the checked-out branch's PR, so only the flag tells them apart.
+for form in "--head other" "-H other" "--head=other" "--head owner:other"; do
+  setup
+  out=$(run_hook "$clone" "gh pr create $form --base feat --fill")
+  { [ "$(branch_of "$clone")" = "feat" ] && [ -z "$out" ]; } && rc=0 || rc=1
+  check "create with '$form' for another branch leaves the checkout alone (said: ${out:-<silent>})" "$rc"
+  teardown
+done
+
+# --head naming the checked-out branch is an ordinary create.
+setup
+out=$(run_hook "$clone" "gh pr create --head feat --fill")
+[ "$(branch_of "$clone")" = "main" ] && rc=0 || rc=1
+check "create with --head naming the checked-out branch switches" "$rc"
+teardown
+
 # No PR for the branch (the create failed) -> nothing happens.
 setup
 stub_gh_fails
