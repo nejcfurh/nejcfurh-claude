@@ -53,7 +53,10 @@ run_gate() {
 run_gate pre-merge-gate.sh
 
 case "$cmd" in
-  *"gh pr create"*) run_gate pre-pr-test-gate.sh ;;
+  *"gh pr create"*)
+    run_gate pre-pr-stack-base-gate.sh
+    run_gate pre-pr-test-gate.sh
+    ;;
 esac
 
 # Any command that publishes text to a shared surface, in a repo that carries
