@@ -103,6 +103,15 @@ run_case "built-in ticket class still fires with no private list" 2 \
 run_case "a project name in a path argument is not a leak" 0 \
   "gh pr create --base main --title 'rules: x' --body-file /Users/x/Development/Contoso/widgetworks/body-clean.md"
 
+# The guarded repo is in the project list too: a PR naming the repo itself, such as
+# its own marketplace, must publish, while any other project's name stays blocked.
+mkdir -p "$PROJECTS/-Users-x-Development-selfowner-selfrepo"
+git remote add origin git@github.com:selfowner/selfrepo.git
+run_case "the repo's own name in a PR title passes" 0 \
+  'gh pr create --base main --title "chore: add the selfowner selfrepo marketplace" --body x'
+run_case "another project's name still blocks in a repo with an origin" 2 \
+  'gh pr create --base main --title "chore: port the widgetworks fix" --body x'
+
 echo ""
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]
