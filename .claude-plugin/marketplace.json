@@ -1,0 +1,12 @@
+{
+  "name": "nejcfurh-claude",
+  "description": "Plugins that ship with the nejcfurh-claude config repo.",
+  "owner": { "name": "nejcfurh" },
+  "plugins": [
+    {
+      "name": "config-status",
+      "source": "./plugins/config-status",
+      "description": "Shows in the desktop Code tab footer whether the nejcfurh-claude hooks, skills and rules are linked and active."
+    }
+  ]
+}
