@@ -6,3 +6,6 @@ settings.local.json
 # skills/) — managed by Claude Code, regenerated on sync, never committed.
 skills/synced/
 skills/.trash/
+# Type contracts the plugin engine writes into a plugin folder when it loads
+# it; regenerated per build, never committed.
+plugins/*/.claude-plugin/types/

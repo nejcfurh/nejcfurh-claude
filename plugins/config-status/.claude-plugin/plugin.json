@@ -1,0 +1,6 @@
+{
+  "name": "config-status",
+  "version": "0.1.0",
+  "description": "Shows in the desktop Code tab footer whether the nejcfurh-claude hooks, skills and rules are linked and active.",
+  "author": { "name": "nejcfurh" }
+}

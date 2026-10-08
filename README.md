@@ -17,7 +17,7 @@ Then this config:
 ```bash
 git clone git@github.com:nejcfurh/nejcfurh-claude.git && cd nejcfurh-claude
 bash scripts/setup.sh --check   # dry-run
-bash scripts/setup.sh           # symlink into ~/.claude + install refactoring-ui plugin
+bash scripts/setup.sh           # symlink into ~/.claude + install refactoring-ui and config-status plugins
 ```
 
 Everything is symlinked, so edits in `~/.claude` and in the repo are the same files — commit when it stabilizes. Existing files are backed up to `<path>.bak.<timestamp>`.
@@ -36,6 +36,7 @@ Gate prerequisites: **`jq` is required** — every git gate parses its hook payl
 | `agents/` | Opt-in subagent personas — see [Personas](#personas) |
 | `hooks/` | Full quality gates (see below) |
 | `scripts/` | `setup.sh`, `statusline.sh` (dir, git branch, model, and context-window usage coloured at `context-nudge.sh`'s own 50/75/90 tiers — the statusline payload is the only surface the harness hands the real window size to, so this is the one place the percentage needs no configuring), `notify.sh`, `chime.sh` (Stop/Notification sound), `detect-parent-branch.sh` (stacked-PR base detection), `lint-config.sh` (CI lint of hook wiring, frontmatter, dead references), `record-verify-pass.sh` (mints the `/verify-done` READY marker, clean tracked tree only), `verify-plan-fingerprint.sh` (hashes the check-plan inputs that key `/verify-done`'s plan cache), `strip-ephemeral-state.sh` (the git clean filter that keeps per-machine runtime state — `.model`, `.feedbackSurveyState` — out of committed `settings.json`; wired by `setup.sh`) |
+| `plugins/` | Function-hook plugins, shipped through this repo's own marketplace (`.claude-plugin/marketplace.json`) rather than symlinked: `config-status` shows "⚡ Nejc's config initiated ✓" centred in the desktop Code tab footer, or the drift `symlink-check.sh` reports. `setup.sh` installs from GitHub, so an edit reaches a machine after it merges and `claude plugin update config-status@nejcfurh-claude` runs. Check one with `claude plugin validate`, `claude plugin test` and `tsc -p plugins/<name>` (the git-ignored types its `tsconfig.json` extends are written into the folder when Claude Code loads it from there, e.g. `claude --plugin-dir plugins/<name>`) |
 | `tests/` | Regression suites for every hook and script with gate logic — `bash tests/run-all.sh` (suites run concurrently, output printed in stable order) |
 | `settings.json` | 91-rule permission deny-list (Read/Edit tools + Bash command forms), OS-level sandbox `denyRead` for home credential stores, hook wiring, plugins, statusline |
 

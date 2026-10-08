@@ -141,6 +141,18 @@ if [ "$CHECK" -eq 0 ] && command -v claude >/dev/null 2>&1; then
     || echo "  marketplace already added (or add failed - run manually: claude plugin marketplace add gnurio/refactoring-ui-plugin)"
   claude plugin install refactoring-ui-skills@refactoring-ui-plugin 2>/dev/null \
     || echo "  plugin already installed (or install failed - run manually: claude plugin install refactoring-ui-skills@refactoring-ui-plugin)"
+
+  # This repo's own plugins (plugins/) are installed through its GitHub
+  # marketplace, not from $REPO_DIR: a folder marketplace writes this clone's
+  # absolute path into the symlinked settings.json, which is tracked. So an edit
+  # under plugins/ reaches sessions after it merges to main, via
+  # `claude plugin update config-status@nejcfurh-claude`.
+  echo
+  echo "Installing config-status plugin from this repo's marketplace..."
+  claude plugin marketplace add nejcfurh/nejcfurh-claude 2>/dev/null \
+    || echo "  marketplace already added (or add failed - run manually: claude plugin marketplace add nejcfurh/nejcfurh-claude)"
+  claude plugin install config-status@nejcfurh-claude 2>/dev/null \
+    || echo "  plugin already installed (or install failed - run manually: claude plugin install config-status@nejcfurh-claude)"
 fi
 
 echo

@@ -316,13 +316,20 @@
     "code-simplifier@claude-plugins-official": false,
     "typescript-lsp@claude-plugins-official": true,
     "figma@claude-plugins-official": true,
-    "refactoring-ui-skills@refactoring-ui-plugin": true
+    "refactoring-ui-skills@refactoring-ui-plugin": true,
+    "config-status@nejcfurh-claude": true
   },
   "extraKnownMarketplaces": {
     "refactoring-ui-plugin": {
       "source": {
         "source": "github",
         "repo": "gnurio/refactoring-ui-plugin"
+      }
+    },
+    "nejcfurh-claude": {
+      "source": {
+        "source": "github",
+        "repo": "nejcfurh/nejcfurh-claude"
       }
     }
   },

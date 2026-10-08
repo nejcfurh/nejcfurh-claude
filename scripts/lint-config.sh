@@ -65,7 +65,9 @@ check_items=$(grep -m1 '^ITEMS=' "$REPO/hooks/symlink-check.sh" | sed 's/^ITEMS=
 expected="CLAUDE.md settings.json"
 for d in "$REPO"/*/; do
   d=$(basename "$d")
-  case "$d" in tests|vendor|node_modules) continue ;; esac
+  # plugins/ ships through the repo's marketplace, never a symlink:
+  # ~/.claude/plugins is Claude Code's own install cache.
+  case "$d" in tests|vendor|node_modules|plugins) continue ;; esac
   expected="$expected $d"
 done
 for item in $expected; do
@@ -85,6 +87,39 @@ for item in $check_items; do
   esac
 done
 ok "setup/symlink-check items checked"
+
+echo "== plugin marketplace wiring"
+# A plugin folder reaches a machine only when the marketplace lists it and
+# settings.json both declares that marketplace and enables the plugin; any one
+# missing installs nothing and says nothing.
+marketplace="$REPO/.claude-plugin/marketplace.json"
+if [ ! -d "$REPO/plugins" ]; then
+  ok "no plugins/"
+elif ! jq -e . "$marketplace" >/dev/null 2>&1; then
+  err ".claude-plugin/marketplace.json is missing or not valid JSON"
+else
+  mp_name=$(jq -r '.name' "$marketplace")
+  jq -e --arg m "$mp_name" '.extraKnownMarketplaces[$m]' "$REPO/settings.json" >/dev/null 2>&1 \
+    || err "settings.json extraKnownMarketplaces does not declare '$mp_name'"
+  for p in "$REPO"/plugins/*/; do
+    p=$(basename "$p")
+    manifest="$REPO/plugins/$p/.claude-plugin/plugin.json"
+    if [ "$(jq -r '.name' "$manifest" 2>/dev/null)" != "$p" ]; then
+      err "plugins/$p/.claude-plugin/plugin.json is missing, invalid, or names another plugin"
+    fi
+    jq -e --arg n "$p" --arg s "./plugins/$p" '.plugins[] | select(.name == $n and .source == $s)' "$marketplace" >/dev/null 2>&1 \
+      || err "plugins/$p is not listed in .claude-plugin/marketplace.json with source ./plugins/$p"
+    jq -e --arg k "$p@$mp_name" '.enabledPlugins[$k] == true' "$REPO/settings.json" >/dev/null 2>&1 \
+      || err "settings.json enabledPlugins does not enable $p@$mp_name"
+  done
+  while IFS= read -r src; do
+    [ -n "$src" ] || continue
+    [ -d "$REPO/$src" ] || err "marketplace.json lists $src, which does not exist in the repo"
+  done <<EOF
+$(jq -r '.plugins[].source' "$marketplace")
+EOF
+  ok "plugin marketplace wiring checked"
+fi
 
 echo "== skill frontmatter"
 for f in "$REPO"/skills/*/SKILL.md; do
