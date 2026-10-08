@@ -128,6 +128,23 @@ stage plain.sh 'const x = 1;'
 run_case "a project name in the command's own path is not a leak" 0 \
   "cd /Users/x/Development/Contoso/widgetworks && git commit -m 'hooks: a change'"
 
+# The guarded repo is in the project list too. Its own public name and owner must
+# commit freely — a marketplace entry naming the repo cannot be written any other
+# way — while every other project's name stays blocked.
+mkdir -p "$PROJECTS/-Users-x-Development-selfowner-selfrepo"
+git remote add origin https://github.com/selfowner/selfrepo.git
+git reset -q
+stage marketplace.json '{ "repo": "selfowner/selfrepo" }'
+run_case "the repo's own name in staged content passes" 0 'git commit -m "chore: register the selfrepo marketplace"'
+run_case "another project's name still blocks in a repo with an origin" 2 'git commit -m "chore: port the widgetworks fix"'
+git reset -q
+stage other.sh 'const owner = "widgetworks";'
+run_case "another project's name in staged content still blocks" 2 'git commit -m "chore: a change"'
+git remote remove origin
+git reset -q
+stage marketplace2.json '{ "repo": "selfowner/selfrepo" }'
+run_case "without an origin the name is not the repo's own" 2 'git commit -m "chore: a change"'
+
 echo ""
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]

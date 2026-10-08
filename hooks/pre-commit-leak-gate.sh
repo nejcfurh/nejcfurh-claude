@@ -55,7 +55,7 @@ staged=$(git -C "$repo" diff --cached -- "${pathspec[@]}" 2>/dev/null |
 # own `cd` or `git -C` argument, so scanning them verbatim blocks every commit in
 # the guarded repo. Tokens containing a slash are paths, not prose.
 cmd_prose=$(printf '%s' "$cmd" | tr ' ' '\n' | grep -v '/' | tr '\n' ' ')
-hits=$(leak_scan "$staged
+hits=$(leak_scan --repo "$root" "$staged
 $cmd_prose")
 
 [ -n "$hits" ] || exit 0

@@ -113,7 +113,7 @@ for target in $targets; do
 $(cat "$candidate" 2>/dev/null)"
 done
 
-hits=$(leak_scan "$scan_text")
+hits=$(leak_scan --repo "$repo_root" "$scan_text")
 [ -n "$hits" ] || exit 0
 
 "$(dirname "$0")/record-gate-block.sh" "pre-gh-outbound-leak-gate" "$payload" 2>/dev/null || true

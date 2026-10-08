@@ -25,14 +25,49 @@ test tests spec dist build node modules claude anthropic github gitlab com org n
 plugins plugin studio design designs config configs hooks rules skills skill agents notes
 data assets images static shared common core utils lib libs bin scripts script"
 
-# leak_derived_terms — engagement names taken from the project list the harness
-# already maintains, one directory per project, so a new client is covered the day
-# work starts rather than when somebody remembers to add it.
+# leak_self_terms <repo-root> — the guarded repo's own identity: the segments of its
+# origin owner/name and of its main checkout's folder name. The project list holds
+# that repo too, so without this a guarded repo cannot commit its own public name.
+#
+# The main checkout is read through the common git dir, so a worktree resolves to
+# the same identity. A worktree's own folder name is NOT excluded: it is chosen
+# freely, and one named after a client would otherwise unprotect that client.
+leak_self_terms() {
+  local root="$1" url name owner common main=""
+  [ -n "$root" ] || return 0
+
+  url=$(git -C "$root" remote get-url origin 2>/dev/null) || url=""
+  url=${url%/}
+  url=${url%.git}
+  name=${url##*/}
+  owner=${url%/*}
+  owner=${owner##*[/:]}
+
+  common=$(cd "$root" 2>/dev/null && cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd) || common=""
+  [ "${common##*/}" = ".git" ] && main=${common%/.git} && main=${main##*/}
+
+  printf '%s\n' "$owner" "$name" "$main" | tr -c '[:alnum:]\n' '\n' | tr '[:upper:]' '[:lower:]' | grep -v '^$' | sort -u
+}
+
+# leak_derived_terms [repo-root] — engagement names taken from the project list the
+# harness already maintains, one directory per project, so a new client is covered
+# the day work starts rather than when somebody remembers to add it. Given a repo
+# root, that repo's own identity (leak_self_terms) is left out.
 #
 # Limit worth knowing: a term matches the form the directory uses. A hyphenated name
 # also matches with spaces or underscores, but a concatenated one cannot be split
 # back into words, so its spaced prose form needs an entry in the manual list.
 leak_derived_terms() {
+  local self
+  self=$(leak_self_terms "${1:-}")
+  if [ -n "$self" ]; then
+    comm -23 <(leak_project_terms) <(printf '%s\n' "$self")
+  else
+    leak_project_terms
+  fi
+}
+
+leak_project_terms() {
   local dir="${CLAUDE_PROJECTS_DIR:-$HOME/.claude/projects}" name segment lower
   [ -d "$dir" ] || return 0
 
@@ -58,11 +93,17 @@ leak_derived_terms() {
   done | sort -u
 }
 
-# leak_scan <text> — prints the matched classes, space separated, or nothing.
-# With no argument it scans stdin, so `… | leak_scan` checks the piped text
-# instead of an empty string that always comes back clean.
+# leak_scan [--repo <root>] [text] — prints the matched classes, space separated,
+# or nothing. With no text argument it scans stdin, so `… | leak_scan` checks the
+# piped text instead of an empty string that always comes back clean. --repo names
+# the repo the text is published from, so its own name is not a project-name hit.
 leak_scan() {
-  local text hits="" patterns_file
+  local text hits="" patterns_file repo=""
+  if [ "${1:-}" = "--repo" ]; then
+    repo=${2:-}
+    shift
+    [ $# -gt 0 ] && shift
+  fi
   if [ $# -eq 0 ]; then text=$(cat); else text=$1; fi
   patterns_file=$(leak_patterns_file)
 
@@ -82,7 +123,7 @@ leak_scan() {
       break
     fi
   done <<EOF
-$(leak_derived_terms)
+$(leak_derived_terms "$repo")
 EOF
 
   if [ -f "$patterns_file" ]; then
