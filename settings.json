@@ -317,7 +317,8 @@
     "typescript-lsp@claude-plugins-official": true,
     "figma@claude-plugins-official": true,
     "refactoring-ui-skills@refactoring-ui-plugin": true,
-    "config-status@nejcfurh-claude": true
+    "config-status@nejcfurh-claude": true,
+    "cc-plugin-you-should-know@builtin": true
   },
   "extraKnownMarketplaces": {
     "refactoring-ui-plugin": {
@@ -347,14 +348,14 @@
     }
   },
   "effortLevel": "xhigh",
-  "tui": "default",
-  "skipWorkflowUsageWarning": true,
-  "editorMode": "normal",
-  "autoCompactEnabled": true,
-  "remoteControlAtStartup": true,
   "modelSettings": {
     "claude-opus-5-5": {
       "effortLevel": "high"
     }
-  }
+  },
+  "tui": "default",
+  "skipWorkflowUsageWarning": true,
+  "editorMode": "normal",
+  "autoCompactEnabled": true,
+  "remoteControlAtStartup": true
 }
