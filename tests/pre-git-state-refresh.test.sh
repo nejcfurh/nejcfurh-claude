@@ -214,8 +214,9 @@ check "fresh fetch reports an age" "fetch-age=0m" "$out"
 absent "fresh fetch does not warn" "WARNING" "$out"
 
 # Past the threshold it must warn — this is the state that makes a three-dot
-# diff or an ahead/behind count untrustworthy.
-if touch -t "$(date -v-90M +%Y%m%d%H%M 2>/dev/null || date -d '-90 min' +%Y%m%d%H%M)" \
+# diff or an ahead/behind count untrustworthy. The timestamp carries seconds:
+# a minute-only one is rounded down, so a run late in a minute read as 91m.
+if touch -t "$(date -v-90M +%Y%m%d%H%M.%S 2>/dev/null || date -d '-90 min' +%Y%m%d%H%M.%S)" \
      "$agerepo/.git/FETCH_HEAD" 2>/dev/null; then
   check "stale fetch warns" "fetch-age=90m WARNING" "$(age_out)"
 else
