@@ -61,6 +61,17 @@ check "a worktree resolves to the main checkout's identity" "" "$(leak_scan --re
 check "a worktree's own folder name is not excluded" " project-name" "$(leak_scan --repo "$FIXTURE/wtname" "the wtname branch")"
 check "an https origin is parsed the same way" "" "$(git -C "$SELF" remote set-url origin https://github.com/selfowner/selfrepo.git && leak_scan --repo "$SELF" "$own")"
 
+# Every project folder under home starts with the encoded home path. The login name
+# in it is the machine's, so naming any path under home must not read as a project.
+mkdir -p "$CLAUDE_PROJECTS_DIR/-Users-loginname-Projects-acmecorp-portal" \
+  "$CLAUDE_PROJECTS_DIR/-Users-loginname" \
+  "$CLAUDE_PROJECTS_DIR/-Users-loginnamex-Projects-sibling"
+as_login() { HOME=/Users/loginname leak_scan "$1"; }
+check "the home login name is not a project term" "" "$(as_login "cd /Users/loginname/Projects && ls")"
+check "the encoded home path is not a project term" "" "$(as_login "/tmp/-Users-loginname-Projects-x/scratchpad")"
+check "a project under home is still a term" " project-name" "$(as_login "work for acmecorp")"
+check "a folder that only shares the login as a prefix keeps its name" " project-name" "$(as_login "the loginnamex folder")"
+
 echo
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]

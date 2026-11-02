@@ -68,12 +68,19 @@ leak_derived_terms() {
 }
 
 leak_project_terms() {
-  local dir="${CLAUDE_PROJECTS_DIR:-$HOME/.claude/projects}" name segment lower
+  local dir="${CLAUDE_PROJECTS_DIR:-$HOME/.claude/projects}" name segment lower home_prefix
   [ -d "$dir" ] || return 0
+  # Every project under home starts with the encoded home path, so its segments —
+  # the login name among them — identify the machine, not an engagement.
+  home_prefix=$(printf '%s' "${HOME:-}" | tr -c '[:alnum:]' '-')
 
   for name in "$dir"/*; do
     [ -d "$name" ] || continue
     name=${name##*/}
+    case "$name" in
+      "$home_prefix") name="" ;;
+      "$home_prefix"-*) name=${name#"$home_prefix"} ;;
+    esac
     printf '%s\n' "${name//-/ }"
   done | tr ' ' '\n' | while IFS= read -r segment; do
     [ -n "$segment" ] || continue
