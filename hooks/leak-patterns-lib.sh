@@ -22,7 +22,7 @@ LEAK_STOPWORDS="users home desktop documents docs development develop dev privat
 library application support scratch workspaces workspace src code repo repos tmp temp var
 app apps web site sites api backend frontend mobile ios android server client public main
 test tests spec dist build node modules claude anthropic github gitlab com org net www
-plugins plugin studio design designs config configs hooks rules skills skill agents notes
+plugins plugin studio design designs config configs hooks rules skills skill agents notes review
 data assets images static shared common core utils lib libs bin scripts script"
 
 # leak_self_terms <repo-root> — the guarded repo's own identity: the segments of its
@@ -68,12 +68,19 @@ leak_derived_terms() {
 }
 
 leak_project_terms() {
-  local dir="${CLAUDE_PROJECTS_DIR:-$HOME/.claude/projects}" name segment lower
+  local dir="${CLAUDE_PROJECTS_DIR:-$HOME/.claude/projects}" name segment lower home_prefix
   [ -d "$dir" ] || return 0
+  # Every project under home starts with the encoded home path, so its segments —
+  # the login name among them — identify the machine, not an engagement.
+  home_prefix=$(printf '%s' "${HOME:-}" | tr -c '[:alnum:]' '-')
 
   for name in "$dir"/*; do
     [ -d "$name" ] || continue
     name=${name##*/}
+    case "$name" in
+      "$home_prefix") name="" ;;
+      "$home_prefix"-*) name=${name#"$home_prefix"} ;;
+    esac
     printf '%s\n' "${name//-/ }"
   done | tr ' ' '\n' | while IFS= read -r segment; do
     [ -n "$segment" ] || continue
