@@ -12,7 +12,8 @@
 #                                `git status` then shows a pile of staged files
 #                                that look like someone else's work
 #   git branch -d <n>            deletes the ref, orphans its [branch] section
-#   git push -u <remote> <br>    publishes the branch, fails only the tracking
+#   git push -u <remote> <br>    publishes the branch if git can authenticate
+#                                in the sandbox, then fails only the tracking
 #                                write (so re-pushing is not the fix)
 #
 # Reconstructing which half applied costs far more than the retry, so this stops
@@ -137,7 +138,7 @@ check branch "this git branch flag" \
   '-d' '-D' '--delete' '-m' '-M' '--move' '--set-upstream-to' '--set-upstream-to=*' '--unset-upstream' '--edit-description'
 
 check push "git push -u" \
-  "The branch IS published and only the tracking write fails, so re-pushing is not the fix." \
+  "If git can authenticate in the sandbox, the branch is published and only the tracking write fails, so re-pushing is not the fix. If its credential helper is gh, the push itself fails first." \
   '-u' '--set-upstream'
 
 git_cmd_scan config "$cmd"
