@@ -1,6 +1,6 @@
 ---
 name: retro
-description: Grade the session's trajectory, not just its outcome, and encode what went wrong into the config so it can't recur. Invoke after a correction, a session that went sideways, or when the user says "retro", "what went wrong", or "make sure this doesn't happen again".
+description: Grade the session's trajectory, not just its outcome, and encode what went wrong into the config so it can't recur. Invoke after a correction, a session that went sideways, or when the user says "retro", "what went wrong", or "make sure this doesn't happen again". `/retro gates` reads the gate-block history instead — which gates fire most and which never do.
 ---
 
 Run a retrospective on: $ARGUMENTS (default: this session's work)
@@ -52,3 +52,24 @@ Before committing, pre-flight with the gate's own matcher, never a hand-written 
 Writing your own grep is the trap, and it fails three ways at once. The pattern has to spell out the very names being protected, so it discloses them into the command line and the transcript. The commit gate scans command prose as well as content, so it then blocks the commit *because of the check* — and the block names a class, not a location, so the obvious reading is that the content is dirty when it is the command that is. And a grep over the full `git diff --cached` inspects text the gate never reads, since the gate deliberately ignores deletions and context so that removing an identifier is not punished; a mismatch there invents a defect in the gate that does not exist. Scan exactly what the gate scans, with the function the gate uses.
 
 The rule text is usually already clean — the commit message and PR body are where it leaks.
+
+## 5. Gate history (`/retro gates`)
+
+A session retro sees one session's blocks. This pass reads every block since the history began, from `~/.claude/state/gate-block-history.tsv` (one `date<TAB>gate` line per block, written by `record-gate-block.sh` and never pruned). Run it with the argument `gates`; it is worth running about once a week.
+
+1. **Tally.** All time, and the last 30 days:
+
+   ```bash
+   h="$HOME/.claude/state/gate-block-history.tsv"
+   head -1 "$h" | cut -f1
+   cut -f2 "$h" | sort | uniq -c | sort -rn
+   since=$(date -v-30d +%F 2>/dev/null || date -d '30 days ago' +%F)
+   awk -F'\t' -v d="$since" '$1 >= d { print $2 }' "$h" | sort | uniq -c | sort -rn
+   ```
+
+   The first line is the date the history starts. A history a few weeks long cannot show that a gate never fires.
+2. **List what can appear.** `grep -l record-gate-block.sh hooks/pre-*gate.sh` in this repo gives the gates that record. A hook missing from that list shows zero because it never writes, not because it never fires — say which ones those are.
+3. **Read it.**
+   - **A gate near the top** blocks the same mistake again and again. Fix the producer — the skill, rule or habit that emits the blocked command — not the gate. The gate is working.
+   - **A recording gate with zero blocks** over a long history is a candidate to retire, never a deletion: it may be a deterrent that works, or its failure class may be gone. Report it with the history's start date and let the user decide.
+4. **Report** a table — gate | last 30 days | all time | reading — then encode any fix through §3 and §4.

@@ -79,6 +79,7 @@ fi
 
 [ -n "$matched" ] || exit 0
 
+"$(dirname "$0")/record-gate-block.sh" "pre-git-sandbox-tree-gate" "$payload" 2>/dev/null || true
 cat >&2 <<EOF
 Blocked: \`$matched\` under the command sandbox.
 
