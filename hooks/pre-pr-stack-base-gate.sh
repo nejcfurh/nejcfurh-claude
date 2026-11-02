@@ -12,6 +12,12 @@
 # the default branch, which is never a stack. The lookup is one `gh pr list` call
 # and the gate fails open whenever it cannot answer.
 #
+# An explicit base that IS the default branch is exempt too. In a release flow the
+# default branch is the head of the open release PR (staging -> main) for as long
+# as that PR is open, so without this every feature PR is refused in that window.
+# The default branch is looked up only once a PR has been found; if that lookup
+# fails, the gate still blocks, which is what it did before the exemption existed.
+#
 # Bypass (a chain that is deliberately unregistered): set SKIP_PR_STACK_BASE_GATE
 # to any non-empty value.
 
@@ -82,6 +88,11 @@ pr=$("$gh_bin" "$@" 2>/dev/null) || exit 0
 case "$pr" in
   '' | *[!0-9]*) exit 0 ;;
 esac
+
+set -- repo view
+[ -n "$repo" ] && set -- "$@" "$repo"
+default=$("$gh_bin" "$@" --json defaultBranchRef --jq '.defaultBranchRef.name' 2>/dev/null)
+[ -n "$default" ] && [ "$default" = "$base" ] && exit 0
 
 HELPER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/record-gate-block.sh"
 [ -x "$HELPER" ] && "$HELPER" pr-stack-base "$payload" >/dev/null 2>&1
