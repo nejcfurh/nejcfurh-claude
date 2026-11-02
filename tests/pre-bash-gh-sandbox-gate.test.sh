@@ -86,6 +86,49 @@ quiet "plain git" 'git status -sb' false
 # --- bypass ---------------------------------------------------------------------
 SKIP_BASH_GH_SANDBOX_GATE=1 quiet "SKIP env silences the gate" 'gh pr list' false
 
+# --- git push through gh's credential helper -------------------------------------
+# Fixtures run under an isolated HOME with system config off, so the developer's
+# own credential helpers cannot decide a case.
+FIX=$(mktemp -d "${TMPDIR:-/tmp}/ghpush.XXXXXX") || exit 1
+trap 'rm -rf "$FIX"' EXIT
+mkdir -p "$FIX/home" "$FIX/ghhome" "$FIX/nowhere"
+gitf() { HOME="$FIX/home" GIT_CONFIG_NOSYSTEM=1 git "$@"; }
+mkrepo() { # mkrepo <dir> <origin-url> <https-helper>
+  gitf init -q "$1" && gitf -C "$1" remote add origin "$2"
+  [ -n "$3" ] && gitf -C "$1" config credential.https://github.com.helper "$3"
+  return 0
+}
+mkrepo "$FIX/gh" https://github.com/o/r.git '!gh auth git-credential'
+mkrepo "$FIX/keychain" https://github.com/o/r.git osxkeychain
+mkrepo "$FIX/ssh" git@github.com:o/r.git '!gh auth git-credential'
+HOME="$FIX/ghhome" git config --global credential.https://github.com.helper '!gh auth git-credential'
+
+# push_case <fires|quiet> <name> <cwd> <command> <unsandboxed> [home]
+push_case() {
+  local want="$1" name="$2" wd="$3" out rc
+  out=$(payload "$4" "$5" | (cd "$wd" && HOME="${6:-$FIX/home}" GIT_CONFIG_NOSYSTEM=1 bash "$SUT" 2>/dev/null))
+  rc=$?
+  if { [ "$want" = fires ] && is_context "$out"; } || { [ "$want" = quiet ] && [ -z "$out" ]; }; then
+    [ "$rc" = "0" ] && { echo "PASS: $want — $name"; pass=$((pass + 1)); return; }
+  fi
+  echo "FAIL: $want — $name (output=${#out} chars, exit $rc)"
+  fail=$((fail + 1))
+}
+
+push_case fires "push to origin with gh as the https helper" "$FIX/gh" 'git push origin feat/x' false
+push_case fires "push with no remote defaults to origin" "$FIX/gh" 'git push' absent
+push_case fires "push after cd into the repo" "$FIX/nowhere" "cd $FIX/gh && git push -u origin feat/x" false
+push_case fires "push with -C" "$FIX/nowhere" "git -C $FIX/gh push --force-with-lease" false
+push_case fires "an option value is not taken for the remote" "$FIX/gh" 'git push -o ci.skip origin feat/x' false
+push_case fires "explicit https url, helper set globally" "$FIX/nowhere" 'git push https://github.com/o/r.git feat/x' false "$FIX/ghhome"
+
+push_case quiet "unsandboxed push" "$FIX/gh" 'git push origin feat/x' true
+push_case quiet "a helper other than gh" "$FIX/keychain" 'git push origin feat/x' false
+push_case quiet "an ssh remote uses no credential helper" "$FIX/ssh" 'git push origin feat/x' false
+push_case quiet "git push only inside a commit message" "$FIX/gh" 'git commit -m "then git push"' false
+push_case quiet "stash push is not a push" "$FIX/gh" 'git stash push -- a.txt' false
+push_case quiet "an unknown remote resolves to nothing" "$FIX/gh" 'git push nosuchremote feat/x' false
+
 echo
 echo "passed: $pass, failed: $fail"
 [ "$fail" -eq 0 ] || exit 1
