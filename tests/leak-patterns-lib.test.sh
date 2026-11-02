@@ -72,6 +72,12 @@ check "the encoded home path is not a project term" "" "$(as_login "/tmp/-Users-
 check "a project under home is still a term" " project-name" "$(as_login "work for acmecorp")"
 check "a folder that only shares the login as a prefix keeps its name" " project-name" "$(as_login "the loginnamex folder")"
 
+# Generic words in a project's path are stopwords; the project's distinctive segment
+# still protects it.
+mkdir -p "$CLAUDE_PROJECTS_DIR/-Users-x-Projects-zenithco-review"
+check "a generic segment like review is not a project term" "" "$(leak_scan "an independent review of the diff")"
+check "the same project's distinctive segment still blocks" " project-name" "$(leak_scan "the zenithco project")"
+
 echo
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]
