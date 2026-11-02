@@ -34,6 +34,11 @@ LOG_DIR=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-logs.XXXXXX") || {
 trap 'rm -rf "$LOG_DIR"; rmdir "$SAFE_CWD" 2>/dev/null' EXIT
 cd "$SAFE_CWD" || exit 1
 
+# Suites that drive a blocking gate with a session id would otherwise append to
+# the real gate-block tallies and to the history /retro reads as real friction.
+export GATE_BLOCK_STATE_DIR="$LOG_DIR/gate-blocks"
+export GATE_BLOCK_HISTORY_FILE="$LOG_DIR/gate-block-history.tsv"
+
 suites=("$SCRIPT_DIR"/*.test.sh)
 pids=()
 names=()

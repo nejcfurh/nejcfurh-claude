@@ -32,6 +32,10 @@ payload() { # payload <session-id>
 
 fresh_dir() { mktemp -d "${TMPDIR:-/tmp}/gateblocks.XXXXXX"; }
 
+# Cases that do not set their own history file still must not touch the real one.
+hist_default=$(fresh_dir)
+export GATE_BLOCK_HISTORY_FILE="$hist_default/history.tsv"
+
 # --- the happy path ------------------------------------------------------------
 dir=$(fresh_dir)
 payload sess-1 | GATE_BLOCK_STATE_DIR="$dir" bash "$SUT" pre-commit-branch-gate "$(payload sess-1)"
@@ -92,7 +96,45 @@ GATE_BLOCK_STATE_DIR="$dir5" bash "$SUT" some-gate "$(payload today-session)"
 check "stale session file is pruned" "0" "$(find "$dir5" -name 'old-session' | wc -l | tr -d ' ')"
 check "current session file survives" "1" "$(find "$dir5" -name 'today-session' | wc -l | tr -d ' ')"
 
-rm -rf "$dir" "$dir2" "$dir3" "$dir4" "$dir5"
+# --- history -------------------------------------------------------------------
+# One dated line per block, in a log the weekly cleanup never prunes — /retro
+# reads it to see which gates fire across months.
+hdir=$(fresh_dir)
+h="$hdir/history.tsv"
+record_h() { # record_h <gate> <payload>
+  GATE_BLOCK_HISTORY_FILE="$h" GATE_BLOCK_STATE_DIR="$hdir/state" bash "$SUT" "$1" "$2" >/dev/null 2>&1
+}
+record_h pre-push-gate "$(payload sess-h)"
+record_h pre-merge-gate "$(payload sess-h)"
+check "history gets one line per block" "2" "$(wc -l < "$h" | tr -d ' ')"
+check "history line is date, tab, gate" "$(date +%Y-%m-%d)	pre-push-gate" "$(head -1 "$h")"
+
+record_h some-gate '{"tool_input":{"command":"git commit"}}'
+record_h some-gate "$(payload '../escape')"
+check "a block without a usable session adds no history" "2" "$(wc -l < "$h" | tr -d ' ')"
+
+# With the default paths, a week-old history must survive the cleanup that
+# prunes week-old session files.
+fake_home="$hdir/home"
+record_default() { # record_default <session>
+  env -u GATE_BLOCK_HISTORY_FILE -u GATE_BLOCK_STATE_DIR HOME="$fake_home" \
+    bash "$SUT" pre-push-gate "$(payload "$1")" >/dev/null 2>&1
+}
+record_default sess-d1
+default_h="$fake_home/.claude/state/gate-block-history.tsv"
+check "default history lives under ~/.claude/state" "1" "$(wc -l < "$default_h" | tr -d ' ')"
+touch -t 202601010000 "$default_h" "$fake_home/.claude/state/gate-blocks/sess-d1"
+record_default sess-d2
+check "week-old session file is pruned" "0" \
+  "$(find "$fake_home/.claude/state/gate-blocks" -name sess-d1 | wc -l | tr -d ' ')"
+check "week-old history survives the cleanup" "2" "$(wc -l < "$default_h" | tr -d ' ')"
+
+nested="$hdir/new/deeper/history.tsv"
+GATE_BLOCK_HISTORY_FILE="$nested" GATE_BLOCK_STATE_DIR="$hdir/state" \
+  bash "$SUT" pre-push-gate "$(payload sess-h3)"
+check "missing history dir is created" "1" "$(wc -l < "$nested" | tr -d ' ')"
+
+rm -rf "$dir" "$dir2" "$dir3" "$dir4" "$dir5" "$hdir" "$hist_default"
 
 echo ""
 echo "$pass passed, $fail failed"
