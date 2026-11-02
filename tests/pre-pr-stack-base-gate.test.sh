@@ -4,8 +4,9 @@
 # in a registered `gh stack`, not a hand-made chain.
 #
 # `gh` is stubbed through GH_BIN: the stub answers `pr list --head feature-a`
-# with PR 41 and every other head with nothing, and logs its arguments so the
-# --repo pass-through can be checked. The quiet cases matter as much as the
+# and `--head staging` with PR 41 and every other head with nothing, reports
+# `staging` as the default branch (and fails for owner/norepo), and logs its
+# arguments so the --repo pass-through can be checked. The quiet cases matter as much as the
 # blocking ones: most `gh pr create` calls target the default branch or a trunk,
 # and a gate that fires on those would block every PR.
 # Run: bash pre-pr-stack-base-gate.test.sh
@@ -30,6 +31,9 @@ cat >"$stub_dir/gh" <<STUB
 printf '%s\n' "\$*" >>"$log"
 case " \$* " in
   *" --head feature-a "*) echo 41 ;;
+  *" --head staging "*) echo 41 ;;
+  *" repo view owner/norepo "*) exit 1 ;;
+  *" repo view "*) echo staging ;;
   *" --head broken "*) exit 1 ;;
 esac
 exit 0
@@ -74,10 +78,12 @@ blocks "-B <branch>" 'gh pr create -B feature-a --fill'
 blocks "quoted base" "gh pr create --base 'feature-a' --fill"
 blocks "after cd &&" 'cd /repo && gh pr create --base feature-a --fill'
 blocks "env prefix" 'GH_PROMPT_DISABLED=1 gh pr create --base feature-a --fill'
+blocks "default branch unknown" 'gh pr create -R owner/norepo --base staging --fill'
 
 # --- quiet: not a stack, or not answerable ---------------------------------------
 quiet "no --base (default branch)" 'gh pr create --title "feat: a" --fill'
-quiet "trunk base" 'gh pr create --base staging --fill'
+quiet "default branch that heads an open release PR" 'gh pr create --base staging --fill'
+quiet "trunk base" 'gh pr create --base main --fill'
 quiet "lookup fails" 'gh pr create --base broken --fill'
 quiet "base only in the title" 'gh pr create --title "move to --base feature-a" --base staging'
 quiet "base only in a heredoc body" "gh pr create --base staging --body-file - <<'EOF'
@@ -99,7 +105,7 @@ fi
 # --- the lookup targets the repo the PR is created in ---------------------------
 : >"$log"
 run 'gh pr create -R owner/other --base staging --fill' >/dev/null
-if grep -q -- '--repo owner/other' "$log"; then
+if grep -q -- '--repo owner/other' "$log" && grep -q -- 'repo view owner/other' "$log"; then
   echo "PASS: --repo is passed to the lookup"
   pass=$((pass + 1))
 else
