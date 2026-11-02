@@ -100,6 +100,25 @@ run_case "non-git command containing the words" 0 'echo "git pull origin main"'
 # --- bypass -------------------------------------------------------------------
 SKIP_GIT_SANDBOX_TREE_GATE=1 run_case "SKIP env bypasses the gate" 0 'git pull --ff-only origin main'
 
+# --- a block is recorded for /retro --------------------------------------------
+state=$(mktemp -d "${TMPDIR:-/tmp}/gateblocks.XXXXXX")
+record_case() { # record_case <command-string>
+  jq -n --arg cmd "$1" '{session_id:"tree-sess", tool_input:{command:$cmd}}' \
+    | GATE_BLOCK_STATE_DIR="$state" GATE_BLOCK_HISTORY_FILE="$state/history.tsv" \
+      bash "$SUT" >/dev/null 2>&1
+}
+record_case 'git fetch origin'
+record_case 'git pull --ff-only origin main'
+got=$(cat "$state/tree-sess" 2>/dev/null)
+if [ "$got" = "pre-git-sandbox-tree-gate" ]; then
+  echo "PASS: a block is tallied once and a pass-through is not"
+  pass=$((pass + 1))
+else
+  echo "FAIL: block tally — expected 'pre-git-sandbox-tree-gate', got '$got'"
+  fail=$((fail + 1))
+fi
+rm -rf "$state"
+
 echo
 echo "passed: $pass, failed: $fail"
 [ "$fail" -eq 0 ] || exit 1
