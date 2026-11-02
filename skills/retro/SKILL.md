@@ -47,6 +47,8 @@ Generalize instead — "a client project", "a ticket", "an internal ticket-prefi
 
 Before committing, pre-flight with the gate's own matcher, never a hand-written grep: source `hooks/leak-patterns-lib.sh` and run `leak_scan --repo "$(git rev-parse --show-toplevel)"` over the commit message, any PR body, and the **added** lines only (`git diff --cached | grep '^+' | grep -v '^+++'`). It reports the matched *class* and never the text, and it needs no protected name typed anywhere.
 
+**Read what it prints, never its exit status.** `leak_scan` reports a match by printing the class names and exits 0 whether or not it found one, so `leak_scan … && echo clean` says clean for every input. Capture the output (`o=$(… | leak_scan --repo "$R")`) and treat anything non-empty as a leak. Before trusting a clean result, feed it a made-up ticket key once and confirm it prints `ticket-key`.
+
 Writing your own grep is the trap, and it fails three ways at once. The pattern has to spell out the very names being protected, so it discloses them into the command line and the transcript. The commit gate scans command prose as well as content, so it then blocks the commit *because of the check* — and the block names a class, not a location, so the obvious reading is that the content is dirty when it is the command that is. And a grep over the full `git diff --cached` inspects text the gate never reads, since the gate deliberately ignores deletions and context so that removing an identifier is not punished; a mismatch there invents a defect in the gate that does not exist. Scan exactly what the gate scans, with the function the gate uses.
 
 The rule text is usually already clean — the commit message and PR body are where it leaks.
