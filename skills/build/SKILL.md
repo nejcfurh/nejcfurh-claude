@@ -48,3 +48,14 @@ Every deviation either fits the proceed list or stops the build — there is no 
 ## Finish
 
 When all increments are done, run `/verify-done` and report its verdict. You are not done until it says READY.
+
+A green suite shows that the checks pass, not that each requirement is met. End the report with an evidence table — one row per acceptance criterion from the plan or spec:
+
+| Requirement | Command | Verdict | Evidence |
+| --- | --- | --- | --- |
+
+- **Evidence** is output you read this session: a test name and its result, a line the command printed, a screenshot path. "Covered by the suite" is not evidence.
+- A requirement that no failing command could catch is **unverified** — write that in the row, never "met".
+- A command that did not run this session is **not run**, whatever it showed earlier.
+
+Then close with a section titled **What could still break**: the paths no check exercised, the assumptions you did not test, the environments you did not run in. If it is empty, say why.

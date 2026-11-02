@@ -31,7 +31,12 @@ Prefer restarting from a self-contained spec or handoff over grinding through a 
 
 ## Resumability
 
-Scheduled loops keep a state file (e.g. `STATE.md`) recording what is done, in progress, and escalated, so a run resumes instead of restarting from zero.
+Scheduled loops keep a state file (e.g. `STATE.md`) so a run resumes instead of restarting from zero. It records:
+
+- **Status** — what is done, in progress, and escalated.
+- **Tried** — each attempt and its result, so attempt 3 cannot quietly repeat attempt 1.
+- **Never** — paths the loop must not touch and approaches it must not retry.
+- **Last failure** — the expected result, the observed result, and where (`file:line`). "Fail identically" above means the observed result is the same twice in a row.
 
 ## Gates still apply
 
