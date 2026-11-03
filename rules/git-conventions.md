@@ -45,6 +45,7 @@ Reviewability is the thing being optimised: two PRs that each read in one sittin
 
 - **Order bottom-up, trunk first:** dependencies and config → schema and migrations → data access → API and business logic → UI → tests and docs that belong to no slice above.
 - **The seam test.** Every slice builds and passes on its own, referencing nothing above it; slices that cannot both pass are one slice. A stack with a non-compiling middle PR is worse than one large PR.
+- **Name the trunk on every stack command when it is not the default branch.** Without a base, linking or submitting can retarget the bottom PR to the default branch, and a stacked PR then refuses a base change. Read each PR's base back afterwards.
 - **No ordinals in branch names.** Position lives in each PR's base; a `-1-`/`-2-` prefix goes stale on the first reorder. Share a stem across the slice names.
 - **Each PR body covers only its own slice**, and states its position and what it sits on.
 - **Slicing an existing branch is restructuring.** Propose the slice plan and get approval before mutating anything, take a backup ref first, and name it.
