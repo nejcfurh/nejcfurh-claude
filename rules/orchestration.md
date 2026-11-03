@@ -36,6 +36,10 @@ Do **not** reach for one when the steps are a true dependency chain, a single ag
 
 Never spin up a fleet unprompted — this is a cost gate, since one run can spawn dozens of agents. The Workflow tool description enumerates what counts as opt-in; what it does not say is that the **Cost** rule and the **Loops** budget discipline in CLAUDE.md apply in full: declare max agents up front, no scope expansion, escalate instead of retrying harder.
 
+## Sibling sessions
+
+**A claim is checked per step, not once per session.** Where several sessions share a plan, re-read the linked sessions and the shared notes folder before starting each step of it, and before fixing shared state such as a red base branch — assignments move between turns, and two sessions building the same piece only discover it at the PR. Starting a step, leave a one-line claim in the notes folder (step, branch, worktree); a claim found there means ask, not race.
+
 ## Node discipline
 
 Topology mechanics — barriers, worktree isolation, output schemas, the verify and loop-until-dry patterns — live in the Workflow tool description, which loads only when the tool is in play. Restating them here costs tokens every session and drifts. Only what the tool description omits belongs below:
