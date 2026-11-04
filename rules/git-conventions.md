@@ -57,7 +57,7 @@ Reviewability is the thing being optimised: two PRs that each read in one sittin
 
 State from earlier in the conversation goes stale — and so do local clones.
 
-- **External state a handoff hands you is unverified, not established.** A handoff saying a flag, dashboard, queue or record does not exist is a claim about a system others change. Re-read it from the owning system before repeating it, planning around it, or writing it down.
+- **External state a handoff hands you is unverified, not established.** A handoff, another session's notes or a scheduled task's to-do saying a flag, record or step is missing or pending is a claim about a system others change. Re-read it from the owning system before repeating it, planning around it, or writing it down.
 - **Repos:** before analyzing, comparing, or building on any repo — at task start and after any gap — run `git fetch` and `git status -sb`.
 - **Your own config checkout counts too.** A session-start notice that the config repo is behind or could not sync means this session's hooks and rules are older than upstream. Relay it in the first reply, with the command that pulls it.
 - **A three-dot diff is the sharp edge of that, and it fails as an accusation.** `git diff <base>...HEAD` takes its merge-base from the remote-tracking ref, so a stale `origin/<base>` presents other people's landed commits as work on this branch. Fetch the base right before reading one; for "what is in this change", prefer the forge API and reconcile before saying who put a commit where. A `fetch-age` warning on the `[pr-state]` line makes every ahead/behind count suspect.
