@@ -16,11 +16,11 @@ Dev servers and other processes meant to outlive a turn should not be harness-tr
 
 If one dies unexplained, diagnose before restarting it the same way. A clean shutdown in the log means it was signalled, not that it crashed — and processes dying in pairs points at an external sweep rather than the app. Restarting identically costs the user whatever was in flight a second time.
 
-**A process you did not start is not yours to restart — find out whether you can before you stop it.** Killing a service to clear a suspected bad state assumes the restart is free, and it often is not: the running one may have been started under an environment, a flag or a working directory that no longer exists, and nothing about it while it is up will tell you. The moment it refuses to come back you have taken away something that was working, in the middle of whatever the user was doing. Establish the restart path first — the exact command and everything it needs — and prefer the narrower fix if one exists, since a stale cache or artifact can usually be invalidated without stopping anything. Say you are about to stop it, and if it will not restart, say that immediately rather than after several attempts.
+**A process you did not start is not yours to restart — find out whether you can before you stop it.** The restart is often not free: it may have been started under an environment, flag or working directory that no longer exists, and nothing about it while it is up tells you. If it refuses to come back, you have broken something that worked, mid-task. Establish the exact restart command and everything it needs first, and prefer the narrower fix — a stale cache or artifact can usually be invalidated without stopping anything. Say you are about to stop it, and if it will not restart, say so at once.
 
 **Stop a named process, never a pattern.** `pkill -f` matched against a framework or runtime name catches every sibling using the same tooling — other projects, other ports, work nobody asked you to touch — and it reports the same success either way. Resolve the port to a pid first and signal that, then confirm what is still listening.
 
-Before reporting a service down, check the **port**, not the process name: `lsof -nP -iTCP:<port> -sTCP:LISTEN`, or curl its status endpoint. A `pgrep` for a plausible-looking name is a guess — Metro, Vite and friends run under `node` with argv that rarely contains the word you searched for, so a name miss reads as "not running" and sends the diagnosis down the wrong path entirely. And a listening port is not evidence it is *your* app: a dev server on the conventional port may belong to a different project, and it will answer your requests and render someone else's page. Confirm identity from the response — a title, a known route, a health payload — before testing against it.
+Before reporting a service down, check the **port**, not the process name: `lsof -nP -iTCP:<port> -sTCP:LISTEN`, or curl its status endpoint. Metro, Vite and friends run under `node` with argv that rarely holds the word you searched, so a `pgrep` miss reads as "not running" and misdirects the diagnosis. A listening port is not proof it is *your* app either: another project's dev server answers on the conventional port too. Confirm identity from the response — a title, a known route, a health payload — before testing against it.
 
 ## When a Workflow earns its cost
 
@@ -39,6 +39,8 @@ Never spin up a fleet unprompted — this is a cost gate, since one run can spaw
 ## Sibling sessions
 
 **A claim is checked per step, not once per session.** Where several sessions share a plan, re-read the linked sessions and the shared notes folder before starting each step of it, and before fixing shared state such as a red base branch — assignments move between turns, and two sessions building the same piece only discover it at the PR. Starting a step, leave a one-line claim in the notes folder (step, branch, worktree); a claim found there means ask, not race.
+
+**A sibling you cannot see races you too.** Before creating something meant to exist once per target on shared state — an experiment on a flag, a ticket, a scheduled reminder — list what exists for it. After the write, read it back and count: two means another session did the same; stop and ask which to keep.
 
 ## Node discipline
 
