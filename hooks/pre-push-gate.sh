@@ -44,7 +44,8 @@ done
 repo=$(git_cmd_repo "${GIT_CMD_CPATH[$pub_idx]}") || repo=""
 
 # A fresh /verify-done READY marker already certifies these exact checks in
-# the checkout being pushed — verify-done runs what CI runs, any edit deletes
+# the checkout being pushed — verify-done runs what CI runs (tests scoped or
+# full, recorded on the marker's line 2), any edit deletes
 # the marker, and the verify gate enforces its presence. Re-running the suite
 # here would double every push's wall-clock cost, possibly in a different
 # checkout than the one verified. Trust the marker; the suite below stays as

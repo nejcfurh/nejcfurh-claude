@@ -39,7 +39,21 @@ cd "$SAFE_CWD" || exit 1
 export GATE_BLOCK_STATE_DIR="$LOG_DIR/gate-blocks"
 export GATE_BLOCK_HISTORY_FILE="$LOG_DIR/gate-block-history.tsv"
 
-suites=("$SCRIPT_DIR"/*.test.sh)
+# Arguments name a subset of suites (path or basename) — /verify-done's scoped
+# mode passes the suites related to the changed files. No arguments: all.
+if [ $# -gt 0 ]; then
+  suites=()
+  for arg in "$@"; do
+    suite="$SCRIPT_DIR/$(basename "$arg")"
+    if [ ! -f "$suite" ]; then
+      echo "FATAL: no such suite: $arg" >&2
+      exit 1
+    fi
+    suites+=("$suite")
+  done
+else
+  suites=("$SCRIPT_DIR"/*.test.sh)
+fi
 pids=()
 names=()
 for suite in "${suites[@]}"; do
