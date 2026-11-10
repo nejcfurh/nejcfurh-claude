@@ -8,11 +8,11 @@
 - **`/loop`, `/goal`** — the *same* task repeated over time or until a stop condition. Temporal, not parallel. See the Loops section in CLAUDE.md.
 - **Workflow** — one *wide* fan-out within a turn: a fleet of subagents coordinated by a plain-JS script whose control flow costs zero model tokens. Nodes do the thinking; edges carry data between them.
 
-Pick by shape, not size. Steps that each read the previous step's output are a line — keep them linear. Steps that don't consume each other's output are independent nodes — the only place a Workflow pays off. Litmus test: if you can't draw an arrow where a variable crosses from one step into the next, there is no dependency and the wait is wasted.
+Pick by shape, not size. Steps that each read the previous step's output are a line: keep them linear. Steps that don't are independent nodes, the only place a Workflow pays off. Litmus test: if you can't draw an arrow where a variable crosses from one step into the next, there is no dependency and the wait is wasted.
 
 ## Long-running local processes
 
-Dev servers and other processes meant to outlive a turn should not be harness-tracked background tasks — those get reaped, and the reaper takes anything mid-flight with them (an interrupted GPU job, a half-written build). Launch them detached (`nohup … & disown`) so their lifetime is their own, or hand the user the command to run in their shell.
+Dev servers and other processes meant to outlive a turn should not be harness-tracked background tasks — those get reaped, and the reaper takes anything mid-flight with them. Launch them detached (`nohup … & disown`) so their lifetime is their own, or hand the user the command to run in their shell.
 
 If one dies unexplained, diagnose before restarting it the same way. A clean shutdown in the log means it was signalled, not that it crashed — and processes dying in pairs points at an external sweep rather than the app. Restarting identically costs the user whatever was in flight a second time.
 
@@ -30,18 +30,20 @@ Reach for one only when the work is genuinely wide or needs structural confidenc
 - **Gated verification** — findings worth confirming with independent skeptics before they reach the answer.
 - **Unknown-size discovery** — a sweep that loops until K consecutive rounds surface nothing new.
 
-Do **not** reach for one when the steps are a true dependency chain, a single agent handles it, "done" is a pure judgment call with no machine-checkable gate, or the task is trivial. A graph where every edge is an agent pays rent on its own plumbing — flatten/dedupe/filter is `results.flatMap(...)` and a `Set`, not an agent. Spend agents on judgment, not wiring.
+Do **not** reach for one when the steps are a true dependency chain, a single agent handles it, "done" is a pure judgment call with no machine-checkable gate, or the task is trivial. A graph where every edge is an agent pays rent on its own plumbing — flatten/dedupe/filter is `results.flatMap(...)` and a `Set`, not an agent.
 
 ## Opt-in is mandatory
 
-Never spin up a fleet unprompted — this is a cost gate, since one run can spawn dozens of agents. The Workflow tool description enumerates what counts as opt-in; what it does not say is that the **Cost** rule and the **Loops** budget discipline in CLAUDE.md apply in full: declare max agents up front, no scope expansion, escalate instead of retrying harder.
+Never spin up a fleet unprompted — this is a cost gate, since one run can spawn dozens of agents. The Workflow tool description enumerates what counts as opt-in; the **Cost** rule and the **Loops** budget discipline in CLAUDE.md also apply in full: declare max agents up front, no scope expansion, escalate instead of retrying harder.
 
 ## Orchestrator sessions
 
-**A new session in any repo or folder is the orchestrator for that work.** Every new ask runs in a nested session opened with `start_session`, never in the orchestrator itself. Open it at once with `initiation: "user_asked"`: this rule is the user's standing request, so no "offer" card and no asking first. Size each from the predicted need: cheaper `model` and lower `effort` for mechanical or read-only asks, both omitted for design-heavy ones. `start_session` accepts only effort at or below the orchestrator's; raise one higher afterwards with `set_session_effort`. Writers use `use_worktree: true`. The orchestrator briefs, tracks, checks each result against its diff, and reports:
+**A new session in any repo or folder is the orchestrator for that work.** Every new ask runs in a nested session opened with `start_session`, never in the orchestrator itself, except a read-only check a handful of calls settle (a lookup, a first measurement of a reported symptom). Open it at once with `initiation: "user_asked"`: this rule is the user's standing request, so no "offer" card and no asking first. Size each from the predicted need: cheaper `model` and lower `effort` for mechanical or read-only asks, both omitted for design-heavy ones. `start_session` accepts only effort at or below the orchestrator's; raise one higher afterwards with `set_session_effort`. Writers use `use_worktree: true`. The orchestrator briefs, tracks, checks each result against its diff, and reports:
 
 - **Progress**: one line per session, its link and state.
 - **To do**: one short imperative line per item, the user's actions first. Nothing else.
+
+**Rebuild both for each report from the owning system** (the forge's PR state, each session's latest report), never from the last report. The user drives children directly: a PR listed "to review" may have merged hours ago, and "do X before merging Y" outlives Y.
 
 ## Sibling sessions
 
@@ -51,7 +53,7 @@ Never spin up a fleet unprompted — this is a cost gate, since one run can spaw
 
 ## Node discipline
 
-Topology mechanics — barriers, worktree isolation, output schemas, the verify and loop-until-dry patterns — live in the Workflow tool description, which loads only when the tool is in play. Restating them here costs tokens every session and drifts. Only what the tool description omits belongs below:
+Topology mechanics (barriers, worktree isolation, output schemas, the verify and loop-until-dry patterns) live in the Workflow tool description; restating them here drifts. Only what it omits belongs below:
 
 - **Every node gets a contract** — bounded input passed explicitly, never assumed from a shared window. A node that infers its scope from ambient context silently changes behavior when the caller changes.
 - **Constrain nodes that read secrets or permissions** — a node auditing credential/permission config must reason *statically* from the file text. Never prompt it to probe real secret paths (`.vault-token`, `*.pem`, `~/.ssh`) or test whether a deny could be bypassed: that trips the credential-exploration security monitor even when the intent is a benign audit, and taints the run's output.
@@ -71,12 +73,12 @@ Topology mechanics — barriers, worktree isolation, output schemas, the verify 
 - **Workflow nodes** — same split via `opts.model`. A cheap extract/classify node still goes to `haiku` regardless of phase; phase routing governs the thinking nodes, not the wiring ones.
 - **Main session** — only the user's `/model` changes the session model (`settings.json` is write-blocked and would not apply mid-session). So state the switch in one line at the boundary, and pick a boundary where the user is already answering — plan approval, spec sign-off — so it costs no extra turn: "Plan's agreed — `/model` to Opus 5 (1M) before I build." Say it once and continue.
 
-The subagent/node `model` enum is `fable | opus | sonnet | haiku` — a tier, not a context variant. There is no `opus[1m]` value to pass; the 1M-context choice exists only at session level.
+The subagent/node `model` enum is `fable | opus | sonnet | haiku`: a tier, not a context variant. The 1M-context choice exists only at session level.
 
 **Per call, effort is a narrower surface than model.** `opts.effort` (`low | medium | high | xhigh | max`) exists on Workflow nodes; omit it to inherit the session effort. The **Agent tool has no `effort` parameter** — writing one into an Agent call does nothing, so a subagent that should be cheap gets a cheaper `model` instead. A subagent or skill *definition* can pin `effort:` in its frontmatter, but that fixes it for every call, which is why the definitions in `agents/` leave it out, as they leave out `model:`. Session effort is the user's to set, same as session model.
 
 ## Saved workflows
 
-A good run can be saved for reuse — version-controlled and viewable live with `/workflows`. Built-in workflows and scripts in `.claude/workflows/` or `~/.claude/workflows/` resolve by name (`/<name>`); `scriptPath` launches any script file by path. Global orchestration guidance lives here; a workflow scoped to a single repo lives in that repo's `.claude/workflows/`. Running any saved workflow still requires opt-in. Worked example: `.claude/workflows/config-consistency-audit.js` (fan out over subsystems → verify each finding → synthesize a ranked report).
+A good run can be saved for reuse and watched live with `/workflows`. Built-in workflows and scripts in `.claude/workflows/` or `~/.claude/workflows/` resolve by name (`/<name>`); `scriptPath` launches any script by path. A workflow scoped to one repo lives in that repo's `.claude/workflows/`. Running a saved workflow still requires opt-in. Worked example: `.claude/workflows/config-consistency-audit.js` (fan out over subsystems → verify each finding → synthesize a ranked report).
 
-Don't document a launch or discovery mechanism as working until you've run it once. Name resolution, flags, and auto-discovery vary by harness version, and a failed launch describes that version only. State the verified behavior; don't promise the plausible one.
+Don't document a launch or discovery mechanism as working until you've run it once: name resolution, flags and auto-discovery vary by harness version, and a failed launch describes that version only. State the verified behavior, not the plausible one.
