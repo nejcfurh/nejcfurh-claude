@@ -38,7 +38,7 @@ Never spin up a fleet unprompted — this is a cost gate, since one run can spaw
 
 ## Orchestrator sessions
 
-**A new session in any repo or folder is the orchestrator for that work.** Every new ask runs in a nested session opened with `start_session`, never in the orchestrator itself, except a read-only check a handful of calls settle (a lookup, a first measurement of a reported symptom). Open it at once with `initiation: "user_asked"`: this rule is the user's standing request, so no "offer" card and no asking first. Size each from the predicted need: cheaper `model` and lower `effort` for mechanical or read-only asks, both omitted for design-heavy ones. `start_session` accepts only effort at or below the orchestrator's; raise one higher afterwards with `set_session_effort`. Writers use `use_worktree: true`. The orchestrator briefs, tracks, checks each result against its diff, and reports:
+**A new session in any repo or folder is the orchestrator for that work.** Every new ask runs in a nested session opened with `start_session`, never in the orchestrator itself, except a read-only check a handful of calls settle (a lookup, a first measurement of a reported symptom). Open it at once with `initiation: "user_asked"`: this rule is the user's standing request, so no "offer" card. Always pass `model` and `effort`; omitted, they inherit the orchestrator's Fable 5.2 at `medium`. `claude-opus-5-5` `high` for design-heavy or ambiguous asks, `medium` for a well-specified build; `claude-sonnet-5-5` `high` for mechanical or read-only ones. `start_session` takes nothing above the orchestrator's, so start a `high` tier at `medium`, then raise it via `set_session_effort` (may prompt). Writers use `use_worktree: true`. The orchestrator briefs, tracks, checks each result against its diff, and reports:
 
 - **Progress**: one line per session, its link and state.
 - **To do**: one short imperative line per item, the user's actions first. Nothing else.
@@ -67,13 +67,13 @@ Topology mechanics (barriers, worktree isolation, output schemas, the verify and
 
 ## Model and effort routing
 
-**Planning runs on Fable 5. Coding runs on Opus 5 (1M context).** Planning is understand / spec / grill / design / review-the-approach. Coding is implement / fix / verify. The boundary is the moment a plan is agreed, not the first file edit.
+**Plan on Fable 5.2, code on Opus 5.5; nested sessions use the tiers above.** Planning is understand / spec / grill / design / review-the-approach. Coding is implement / fix / verify. The boundary is the moment a plan is agreed, not the first file edit.
 
-- **Subagents** — pass `model` on the Agent call: `'fable'` for planning delegates (`Plan`, `product-manager`, spec and architecture review), `'opus'` for delegates that write code. Definitions in `agents/` carry no `model:` frontmatter: routing is per-call, since one specialist plans in one turn and implements in the next.
-- **Workflow nodes** — same split via `opts.model`. A cheap extract/classify node still goes to `haiku` regardless of phase; phase routing governs the thinking nodes, not the wiring ones.
-- **Main session** — only the user's `/model` changes the session model (`settings.json` is write-blocked and would not apply mid-session). So state the switch in one line at the boundary, and pick a boundary where the user is already answering — plan approval, spec sign-off — so it costs no extra turn: "Plan's agreed — `/model` to Opus 5 (1M) before I build." Say it once and continue.
+- **Subagents** — pass `model` on the Agent call, nested sessions included: `'fable'` for planning delegates (`Plan`, `product-manager`, spec and architecture review), `'opus'` for delegates that write code. Definitions in `agents/` carry no `model:` frontmatter: routing is per-call, since one specialist plans in one turn and implements in the next.
+- **Workflow nodes** — same split via `opts.model`. Cheap extract/classify nodes still go to `haiku` in any phase.
+- **Main session** — only the user's `/model` changes the session model (`settings.json` is write-blocked and would not apply mid-session). Outside an orchestrator, which never implements, state the switch once where the user is already answering — plan approval, spec sign-off: "Plan's agreed — `/model` to Opus 5.5 before I build."
 
-The subagent/node `model` enum is `fable | opus | sonnet | haiku`: a tier, not a context variant. The 1M-context choice exists only at session level.
+The subagent/node `model` enum is `fable | opus | sonnet | haiku`: a tier, not a context variant. A 1M-context variant is a `/model` choice; through `start_session` it is untested.
 
 **Per call, effort is a narrower surface than model.** `opts.effort` (`low | medium | high | xhigh | max`) exists on Workflow nodes; omit it to inherit the session effort. The **Agent tool has no `effort` parameter** — writing one into an Agent call does nothing, so a subagent that should be cheap gets a cheaper `model` instead. A subagent or skill *definition* can pin `effort:` in its frontmatter, but that fixes it for every call, which is why the definitions in `agents/` leave it out, as they leave out `model:`. Session effort is the user's to set, same as session model.
 
