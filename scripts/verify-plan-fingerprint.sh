@@ -27,4 +27,9 @@ cd "$repo" || exit 1
 } | sort -u | while IFS= read -r f; do
   [ -f "$f" ] || continue
   printf '%s %s\n' "$f" "$(git hash-object -- "$f" 2>/dev/null)"
-done | git hash-object --stdin
+done | {
+  # The plan file's format version: bumping it retires every cached plan
+  # written in an older format, whatever its inputs.
+  printf 'plan-format v2\n'
+  cat
+} | git hash-object --stdin

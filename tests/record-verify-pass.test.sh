@@ -40,7 +40,7 @@ marker="$repo/.git/verify-done-ok"
 
 # Clean tree: marker written, first line is HEAD.
 clean_writes() {
-  (cd "$repo" && bash "$SUT" >/dev/null 2>&1) \
+  (cd "$repo" && bash "$SUT" --mode full >/dev/null 2>&1) \
     && [ -f "$marker" ] \
     && [ "$(head -n1 "$marker")" = "$(git -C "$repo" rev-parse HEAD)" ]
 }
@@ -51,26 +51,26 @@ check "clean tree writes marker bound to HEAD" clean_writes
 # only decides whether to MINT).
 dirty_refuses() {
   echo "line2" >> "$repo/tracked.txt"
-  ! (cd "$repo" && bash "$SUT" >/dev/null 2>&1)
+  ! (cd "$repo" && bash "$SUT" --mode full >/dev/null 2>&1)
 }
 check "dirty tracked tree refuses to write" dirty_refuses
 
 refusal_names_verdict() {
-  (cd "$repo" && bash "$SUT" 2>&1 >/dev/null || true) | grep -q "READY TO COMMIT"
+  (cd "$repo" && bash "$SUT" --mode full 2>&1 >/dev/null || true) | grep -q "READY TO COMMIT"
 }
 check "refusal message names READY TO COMMIT" refusal_names_verdict
 
 # Staged-but-uncommitted change: refused.
 staged_refuses() {
   (cd "$repo" && git add tracked.txt)
-  ! (cd "$repo" && bash "$SUT" >/dev/null 2>&1)
+  ! (cd "$repo" && bash "$SUT" --mode full >/dev/null 2>&1)
 }
 check "staged change refuses to write" staged_refuses
 
 # Committing the change makes minting legal again, with the new HEAD.
 commit_reenables() {
   (cd "$repo" && git commit -q -m "feat: change") || return 1
-  (cd "$repo" && bash "$SUT" >/dev/null 2>&1) \
+  (cd "$repo" && bash "$SUT" --mode full >/dev/null 2>&1) \
     && [ "$(head -n1 "$marker")" = "$(git -C "$repo" rev-parse HEAD)" ]
 }
 check "post-commit run records the new HEAD" commit_reenables
@@ -79,15 +79,41 @@ check "post-commit run records the new HEAD" commit_reenables
 untracked_ok() {
   rm -f "$marker"
   echo "scratch" > "$repo/notes.txt"
-  (cd "$repo" && bash "$SUT" >/dev/null 2>&1) && [ -f "$marker" ]
+  (cd "$repo" && bash "$SUT" --mode full >/dev/null 2>&1) && [ -f "$marker" ]
 }
 check "untracked file does not block the marker" untracked_ok
 
 # Outside a repository: error exit, nothing created.
 outside_fails() {
-  ! (cd "$other" && bash "$SUT" >/dev/null 2>&1)
+  ! (cd "$other" && bash "$SUT" --mode full >/dev/null 2>&1)
 }
 check "outside a repo exits non-zero" outside_fails
+
+# The mode is part of the record: it must be stated, and it lands on line 2
+# without disturbing the HEAD on line 1 that the gates read.
+missing_mode_refuses() {
+  rm -f "$marker"
+  ! (cd "$repo" && bash "$SUT" >/dev/null 2>&1) && [ ! -f "$marker" ]
+}
+check "missing --mode refuses and writes nothing" missing_mode_refuses
+
+bad_mode_refuses() {
+  ! (cd "$repo" && bash "$SUT" --mode partial >/dev/null 2>&1) && [ ! -f "$marker" ]
+}
+check "unknown mode refuses and writes nothing" bad_mode_refuses
+
+scoped_recorded() {
+  (cd "$repo" && bash "$SUT" --mode scoped >/dev/null 2>&1) \
+    && [ "$(head -n1 "$marker")" = "$(git -C "$repo" rev-parse HEAD)" ] \
+    && [ "$(sed -n 2p "$marker")" = "mode=scoped" ]
+}
+check "scoped mode recorded on line 2, HEAD stays line 1" scoped_recorded
+
+full_recorded() {
+  (cd "$repo" && bash "$SUT" --mode=full >/dev/null 2>&1) \
+    && [ "$(sed -n 2p "$marker")" = "mode=full" ]
+}
+check "full mode recorded on line 2" full_recorded
 
 rm -rf "$repo" "$other"
 
