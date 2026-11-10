@@ -25,6 +25,13 @@ check() { # check <name> <expected> <actual>
   fi
 }
 
+# Isolated before the first scan: the defaults read the real projects folder and pattern
+# list, so a case that runs earlier depends on whatever this machine has worked on.
+FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/leaklib.XXXXXX")" || exit 1
+trap 'rm -rf "$FIXTURE"' EXIT
+export CLAUDE_LEAK_PATTERNS="$FIXTURE/no-patterns"
+export CLAUDE_PROJECTS_DIR="$FIXTURE/projects"
+
 # Assembled at runtime so this file holds no literal ticket key for the commit gate to match.
 dirty="fix the parser bug from $(printf 'AB%s' C)-1234"
 clean="fix the parser bug"
@@ -37,10 +44,6 @@ check "an explicit empty argument does not read stdin" "" "$(printf '%s\n' "$dir
 
 # A guarded repo is itself in the project list, so its own name and owner are derived
 # terms too. --repo excludes that identity without unprotecting any other project.
-FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/leaklib.XXXXXX")" || exit 1
-trap 'rm -rf "$FIXTURE"' EXIT
-export CLAUDE_LEAK_PATTERNS="$FIXTURE/no-patterns"
-export CLAUDE_PROJECTS_DIR="$FIXTURE/projects"
 mkdir -p "$CLAUDE_PROJECTS_DIR/-Users-x-Projects-selfowner-selfrepo" \
   "$CLAUDE_PROJECTS_DIR/-Users-x-Projects-selfdir" \
   "$CLAUDE_PROJECTS_DIR/-Users-x-Projects-otherclient-portal" \
@@ -77,6 +80,13 @@ check "a folder that only shares the login as a prefix keeps its name" " project
 mkdir -p "$CLAUDE_PROJECTS_DIR/-Users-x-Projects-zenithco-review"
 check "a generic segment like review is not a project term" "" "$(leak_scan "an independent review of the diff")"
 check "the same project's distinctive segment still blocks" " project-name" "$(leak_scan "the zenithco project")"
+
+# A Claude worktree folder is the parent project plus `--claude-worktrees-<branch>-<hex>`.
+# Its branch words are task vocabulary; only the parent is a project. The parent has no
+# folder of its own here, so the last case proves the mapping keeps it.
+mkdir -p "$CLAUDE_PROJECTS_DIR/-Users-x-Projects-quillcorp--claude-worktrees-tidy-widget-a1b2c3"
+check "a worktree folder's branch words are not project terms" "" "$(leak_scan "tidy the widget")"
+check "a worktree folder still protects its parent project" " project-name" "$(leak_scan "the quillcorp repo")"
 
 echo
 echo "$pass passed, $fail failed"

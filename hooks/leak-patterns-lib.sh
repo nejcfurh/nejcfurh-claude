@@ -77,6 +77,9 @@ leak_project_terms() {
   for name in "$dir"/*; do
     [ -d "$name" ] || continue
     name=${name##*/}
+    # A Claude worktree folder is its parent project plus `--claude-worktrees-<branch>`.
+    # The branch words are generic task vocabulary, not an engagement, so keep the parent only.
+    name=${name%%--claude-worktrees-*}
     case "$name" in
       "$home_prefix") name="" ;;
       "$home_prefix"-*) name=${name#"$home_prefix"} ;;
