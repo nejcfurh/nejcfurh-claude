@@ -37,7 +37,8 @@
       "mcp__context7__query-docs",
       "mcp__plugin_figma_figma__get_design_context",
       "mcp__plugin_figma_figma__get_metadata",
-      "mcp__plugin_figma_figma__get_screenshot"
+      "mcp__plugin_figma_figma__get_screenshot",
+      "mcp__ccd_session_mgmt__set_session_effort"
     ],
     "deny": [
       "Read(**/.env)",
