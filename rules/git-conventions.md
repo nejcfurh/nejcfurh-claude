@@ -10,7 +10,7 @@
 - Never commit directly to `main`/`master` — verify the branch first, use a feature branch. (Enforced by hook.)
 - Autonomous commit, push, and PR creation are allowed by default. Before pushing: feature branch, `/verify-done`, gates pass. Still **never** auto-merge (the user merges) and never push to the default branch; force pushes to feature branches need no asking. A project can re-require explicit instructions in its own CLAUDE.md.
 - **Handing the user a push command is the fallback for a gate you cannot pass right now, never a standing arrangement.** A handoff saying "the user pushes" records that moment's blocker, not a rule (*a fence with a date on it*, `engineering-principles.md`). Run `/verify-done`; on READY, push yourself. Only an unfixable failing check, or the user saying so this session, makes the push theirs — say which. **"Cannot pass" means every autonomous route was tried this session**, not that a memory says one is blocked — probe such a line once. Shared local infrastructure holding state (a seeded database) has a route: snapshot, reset, run the gate, restore, verify the counts.
-- **Never route around a gate.** When a hook blocks a git operation, do not re-issue it through wrappers or alternate command forms. Fix the trigger (feature branch, ff-merge) or hand the exact command over for the `!` prefix. A commit made by a tool other than `git commit` is an alternate form: `gh stack init|add -A -m …` commits with no `commit` on the line, so the gates sit it out. Stage and commit separately. (Gated.)
+- **Never route around a gate** — no wrappers, alternate command forms or other tools that commit. Fix the trigger (feature branch, ff-merge) or hand the exact command over for the `!` prefix. (Gated.)
 
 ## Branches and PRs
 
@@ -23,7 +23,7 @@
 - When branching off a protected base (`develop`/`main`) — including via `git worktree add -b <branch> <path> origin/<base>` — don't leave the branch tracking it: `git branch --unset-upstream`, or create it with `--no-track`. This is about tracking the *base*: once the branch is pushed, tracking its own `origin/<branch>` is correct — never unset that.
 - Rebase onto the target branch (`git fetch origin main && git rebase origin/main`) before creating a PR.
 - **Resolve a conflict by reading the region and choosing, never by pattern-matching across the markers.** The two sides are near-identical by construction, so a scripted marker-strip takes the wrong brace, tag or clause silently. Before `git rebase --continue`, confirm the file parses and delimiters balance; otherwise the break surfaces later in a suite that points nowhere near the rebase.
-- Run `/verify-done` before pushing any branch. (Enforced by hook — READY records a marker pushes require; any edit invalidates it. Only a clean tracked tree gets push-ready READY; a dirty one gets READY TO COMMIT.)
+- Run `/verify-done` before pushing any branch. (Enforced by hook; any edit invalidates READY.)
 - **Decide the destination of every working-tree change before starting a commit flow.** Push-ready READY needs a clean tree, so something deliberately left uncommitted dead-ends at the gate. Raise it — commit, drop, or hand over the push — when the user asks to commit.
 - PR descriptions: bullet points in the summary, not prose paragraphs.
 - After pushing new commits to an existing PR, update its title and description (`gh pr edit`) to reflect all changes.
@@ -67,9 +67,7 @@ State from earlier in the conversation goes stale — and so do local clones.
 - **PRs:** before asserting PR state, run `gh pr view --json state,mergedAt,statusCheckRollup` and answer from that. Read the `[pr-state]` line the hook injects before git/gh writes; if it says MERGED or CLOSED, pause and confirm intent.
 - **A tracker's status timestamp is not a deploy date.** Done / `updatedAt` records a card move, not code reaching an environment, and can be weeks off. Date from the merge commit plus the release that carried it (`gh pr view --json mergedAt`, then which release contains it), and state which date you used.
 - **When dating a release by "which one contains this commit", enumerate every candidate, and cross-check the answer against the earliest observation of the effect.** Testing a few plausible refs gives a date too late whenever the carrier was not among them. Use `git branch -r --contains` or ancestry over every merge into the deploying branch; a first sighting before your date means the date is wrong.
-- **A checkout you did not leave on its current branch is occupied.** Someone may be working in it right now; do not move it — `git worktree add <path> <branch>` costs nothing. Git carries non-conflicting changes across a switch and reports success, so the damage is invisible. (Backed by the branch-switch gate.)
-
-  **The check belongs before the first edit, not before the commit.** The branch can change between turns, and later edits land in whatever is checked out. Read the branch at the start of any editing turn after a gap; if it moved, take a worktree; if you already edited, isolate your paths with a scoped patch and restore only those. (Backed by the edit branch-drift gate.)
+- **A checkout you did not leave on its current branch is occupied** — take a `git worktree add` instead of moving it, and re-read the branch before the first edit after a gap. (Backed by the branch-switch and edit branch-drift gates.)
 
 ## Tooling
 
