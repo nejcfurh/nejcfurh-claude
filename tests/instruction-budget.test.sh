@@ -28,7 +28,28 @@ got=$(count "$probe")
 rm -f "$probe"
 if [ "$got" != 4 ]; then echo "FAIL: counter measured $got units for 'a—🙂', expected 4"; fail=1; fi
 
-files=("$REPO/CLAUDE.md" "$REPO"/rules/*.md)
+# A rule with `paths:` frontmatter loads only when a matching file is read,
+# not at startup, so it is left out of the startup budget.
+scoped() { # scoped <file> -> exit 0 if its frontmatter has a paths: key
+  awk 'NR == 1 { if ($0 != "---") exit 1; next } /^---$/ { exit 1 } /^paths:/ { found = 1; exit 0 } END { exit !found }' "$1"
+}
+
+# The detector itself: frontmatter paths counts, a body line does not.
+probe_dir=$(mktemp -d "${TMPDIR:-/tmp}/budget-scope.XXXXXX") || exit 1
+printf -- '---\npaths:\n  - "**/*.ts"\n---\n# x\n' >"$probe_dir/scoped.md"
+printf -- '# x\npaths: not frontmatter\n' >"$probe_dir/plain.md"
+printf -- '---\nname: x\n---\npaths: after frontmatter\n' >"$probe_dir/other.md"
+scoped "$probe_dir/scoped.md" || { echo "FAIL: detector missed paths: frontmatter"; fail=1; }
+if scoped "$probe_dir/plain.md"; then echo "FAIL: detector took a body line for frontmatter"; fail=1; fi
+if scoped "$probe_dir/other.md"; then echo "FAIL: detector read past the frontmatter"; fail=1; fi
+rm -rf "$probe_dir"
+
+files=("$REPO/CLAUDE.md")
+skipped=()
+for f in "$REPO"/rules/*.md; do
+  if scoped "$f"; then skipped+=("${f#"$REPO"/}"); else files+=("$f"); fi
+done
+[ ${#skipped[@]} -gt 0 ] && echo "INFO: path-scoped, not counted: ${skipped[*]}"
 total=$(count "${files[@]}")
 if [ "$total" -gt "$BUDGET" ]; then
   echo "FAIL: CLAUDE.md + rules/ = $total chars, over the $BUDGET budget by $((total - BUDGET))."

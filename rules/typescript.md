@@ -1,3 +1,7 @@
+---
+paths:
+  - "**/*.{ts,tsx,mts,cts}"
+---
 # TypeScript Standards
 
 **When to apply:** editing `*.ts` / `*.tsx` files.
