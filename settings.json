@@ -184,7 +184,7 @@
           },
           {
             "type": "command",
-            "command": "HOOK=\"$HOME/.claude/hooks/pre-bash-zsh-modifier-gate.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true",
+            "command": "HOOK=\"$HOME/.claude/hooks/pre-bash-zsh-modifier-gate.sh\"; [ -x \"$HOOK\" ] && exec \"$HOOK\"",
             "timeout": 15
           }
         ]
