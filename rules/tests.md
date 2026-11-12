@@ -1,3 +1,10 @@
+---
+paths:
+  - "**/*.{test,spec}.{ts,tsx,js,jsx,mjs,cjs}"
+  - "**/{test,tests,__tests__,e2e,spec}/**"
+  - "**/{test_*,*_test}.{py,go}"
+  - "**/{playwright,vitest,jest,cypress}.config.*"
+---
 # Testing Standards
 
 **When to apply:** writing or running tests, and checking behaviour by driving a browser or simulator.
