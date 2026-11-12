@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Regression tests for hooks/pre-bash-zsh-modifier-gate.sh — warns (never
-# blocks) when a zsh-run command expands an unbraced parameter followed by
-# ":<letter>", which zsh applies as a history modifier.
+# Regression tests for hooks/pre-bash-zsh-modifier-gate.sh. Under zsh it
+# BLOCKS an unquoted word zsh will reject (`--include=*.ts`, `echo ====`) and
+# WARNS on an unbraced parameter followed by ":<letter>", which zsh applies as
+# a history modifier.
 #
-# Half of this suite asserts silence: braced names, ports, paths after a
-# colon and single-quoted text are all common and correct.
+# Most of this suite asserts silence: quoted patterns, here-document bodies,
+# [[ ]] comparisons, braced names, ports and single-quoted text are all common
+# and correct.
 #
-# Exit code is always 0.
+# Exits non-zero when any case fails.
 # Run: bash pre-bash-zsh-modifier-gate.test.sh
 set -u
 
@@ -58,12 +60,84 @@ quiet() {
   fi
 }
 
+# blocks <name> <command> — expects exit 2, a BLOCKED message, and no stdout
+blocks() {
+  local name="$1" out err rc errf
+  errf=$(mktemp "${TMPDIR:-/tmp}/zshgate-err.XXXXXX")
+  out=$(payload "$2" | SHELL=/bin/zsh bash "$SUT" 2>"$errf")
+  rc=$?
+  err=$(cat "$errf"); rm -f "$errf"
+  if [ "$rc" = "2" ] && [ -z "$out" ] && printf '%s' "$err" | grep -q '^BLOCKED: zsh will abort'; then
+    echo "PASS: blocks — $name"
+    pass=$((pass + 1))
+  else
+    echo "FAIL: blocks — $name (exit $rc, stderr: ${err:0:80})"
+    fail=$((fail + 1))
+  fi
+}
+
+# --- blocks: zsh rejects the word before running anything after it -----------
+blocks "grep --include glob" 'grep -rn foo --include=*.ts .'
+blocks "second --include after a quoted one" "grep -rn x --include='*.ts' --include=*.tsx ."
+blocks "--exclude glob" 'grep -rn x --exclude=*.lock .'
+blocks "bracket glob after =" 'git log --format=[ab] -1'
+blocks "short option with = and glob" 'mvn -Dtest=*IT verify'
+blocks "glob after an && chain" 'git fetch -q && grep -rln x --include=*.md .'
+blocks "inside unquoted command substitution" 'echo $(grep -l x --include=*.ts -r .)'
+blocks "echo ==== separator" 'git status; echo ====; git log -1'
+blocks "== in single-bracket test" '[ "$a" == "$b" ] && echo same'
+blocks "==word" 'echo ===MERGED'
+blocks "after a here-document body ends" "$(printf 'cat <<EOF
+body
+EOF
+echo ====')"
+
+# --- quiet: forms zsh accepts --------------------------------------------------
+quiet "single-quoted glob" "grep -rn x --include='*.ts' ."
+quiet "double-quoted glob" 'grep -rn x --include="*.ts" .'
+quiet "escaped glob" 'grep -rn x --include=\*.ts .'
+quiet "whole word quoted" 'grep -rn x "--include=*.ts" .'
+quiet "option with = and no glob" 'git log --format=%h --exclude=node_modules -1'
+quiet "glob in a non-option word" 'ls src/*.ts'
+quiet "assignment with a glob" 'P=*.ts; echo "$P"'
+quiet "parameter expansion after =" 'echo --x=${VAR:-*}'
+quiet "bare =" '[ "$a" = "$b" ] && echo same'
+quiet "=cmd is valid zsh" 'echo =ls'
+quiet "== inside [[ ]]" '[[ "$a" == "$b" ]] && echo same'
+quiet "== inside (( ))" 'if (( a == b )); then echo same; fi'
+quiet "== inside arithmetic expansion" 'echo $(( 1 == 1 ))'
+quiet "single-quoted ====" "echo '===='"
+quiet "awk program in quotes" "awk '\$1 == 2' f.txt"
+quiet "jq filter without leading ==" 'jq .a==1 f.json'
+quiet "here-document body is data" "$(printf 'cat > f.md <<EOF
+grep --include=*.ts
+====
+EOF
+echo done')"
+quiet "quoted here-document body is data" "$(printf "python3 - <<'PY'
+print('==' * 4)
+PY")"
+quiet "indented <<- body" "$(printf 'cat <<-EOF
+	====
+	EOF
+echo ok')"
+quiet "multi-line commit message" "$(printf 'git commit -m "feat: x
+
+==== --include=*.ts"')"
+quiet "here-string is not a here-document" 'cat <<< "x"; echo ok'
+quiet "comment" "$(printf 'ls # see ====
+echo ok')"
+quiet "nomatch disabled in the command" 'setopt nonomatch; grep -rn x --include=*.ts .'
+quiet "bash session" 'grep -rn x --include=*.ts .' /bin/bash
+SKIP_BASH_ZSH_GLOB_GATE=1 quiet "SKIP_BASH_ZSH_GLOB_GATE silences the block" 'echo ===='
+
 # --- fires: unbraced parameter + ":<modifier letter>" under zsh ---------------
 fires "git show ref:path in double quotes" 'git show "$REF:lib/x.ts"'
 fires "unquoted ref:path" 'git show $T:components/data.ts'
 fires "head modifier" 'echo "$DIR:hidden"'
 fires "absolute-path modifier" 'cp "$SRC:app/page.tsx" out/'
 fires "positional parameter" 'git show "$1:readme.md"'
+fires "modifier after an assignment" 'X=1 git show "$REF:lib/x.ts"'
 fires "modifier after a quoted segment" "echo 'fine' && git show \"\$REF:lib/y.ts\""
 
 # --- quiet: braced or otherwise safe forms ------------------------------------
