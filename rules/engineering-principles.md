@@ -124,6 +124,8 @@ A concern you noticed ("worth checking", "I'll note that") feels handled, and yo
 
 **Never state what CI does or does not run without reading the trigger.** Jobs are narrowed by branch and path filters, `workflow_dispatch`-only triggers and `if:` conditions; read the trigger block against `git diff --name-only`. Prefer reporting the checks you actually saw on the PR.
 
+**A re-run hides the failure it replaced.** CI log and status views show the latest attempt by default, so after someone re-ran a red job they show the green one, and the failure reads as never having happened. Read the failing attempt by its number (`gh run view <id> --attempt 1 --log`), and confirm which test failed in each red run before you attribute it — two runs on the same day can fail on different tests.
+
 **A default-UA fetch is not what a user receives.** Servers branch on the user agent (bot detection, analytics suppression, different markup), so "absent from the HTML" is no evidence until the request carried a real browser UA. Inversely, a value the page consumes at runtime reads as missing after load. Check the served document for what the server sent and the live DOM for what survives.
 
 **Migrating literals into an indirection layer needs a reachability check, not an equivalence check.** When strings, numbers or settings move behind a lookup (message dictionary, flag registry, config map, theme table), the failure is a **key created but never wired**: the call site keeps the literal, so the old surface still renders the same. Parse the keys out of the lookup, grep each against its own source file, and treat any with no reference as unmigrated (confirm computed or templated keys).
