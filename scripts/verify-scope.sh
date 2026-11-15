@@ -3,7 +3,10 @@
 # related to the files this branch changes (mode=scoped), or everything
 # (mode=full). Full is chosen whenever a changed file can affect tests it is
 # not named in — CI and runner config, manifests and lockfiles, test
-# infrastructure — or when a changed code file maps to no test at all.
+# infrastructure, a NEW code file — or when a changed code file maps to no
+# test at all. A new file escalates because tests that enumerate a directory
+# (route censuses, registries, "every X has a Y" checks) reach it by listing,
+# never by import or by name, so no related-test selection can find them.
 #
 # Changed files = everything differing from the merge-base with the PR base
 # (committed, staged, unstaged, deleted) plus untracked, non-ignored files.
@@ -67,6 +70,13 @@ changed_files=$(
   } | sort -u
 )
 [ -n "$changed_files" ] || full "no changes against $base"
+
+added_files=$(
+  {
+    git -c core.quotePath=false diff --name-only --no-renames --diff-filter=A "$mb" 2>/dev/null
+    git -c core.quotePath=false ls-files --others --exclude-standard 2>/dev/null
+  } | sort -u
+)
 
 all_tracked=$(git -c core.quotePath=false ls-files 2>/dev/null
   git -c core.quotePath=false ls-files --others --exclude-standard 2>/dev/null)
@@ -167,6 +177,10 @@ native=""
 while IFS= read -r f; do
   [ -n "$f" ] || continue
   if reason=$(is_trigger "$f"); then full "$reason"; fi
+  if printf '%s\n' "$added_files" | grep -qxF -- "$f" \
+    && ! is_test_file "$f" && ! is_snapshot "$f" && ! is_inert "$f"; then
+    full "new file can reach tests that scan its directory: $f"
+  fi
 
   if is_snapshot "$f"; then
     # __snapshots__/foo.test.ts.snap belongs to ../foo.test.ts.

@@ -120,7 +120,7 @@ A concern you noticed ("worth checking", "I'll note that") feels handled, and yo
 
 **An enumeration that backs a go/no-go is produced by a command, not by recall.** "Everything this change does in production", "the files affected": derive the list from the diff, then classify every entry against the claim (gated or not, reachable or not). The item you judged minor earlier is the one recall drops.
 
-**Truncated output is a partial read — re-query, don't report it.** Project fewer columns, filter to the rows in question, or aggregate. The unread cell is where a difference hides.
+**Truncated output is a partial read — re-query, don't report it.** Project fewer columns, filter to the rows in question, or aggregate. The unread cell is where a difference hides. A search capped by `head` or a result limit can show that something exists, never that it does not: re-run it uncapped before "there is no X" goes into a question, ticket or PR body.
 
 **Never state what CI does or does not run without reading the trigger.** Jobs are narrowed by branch and path filters, `workflow_dispatch`-only triggers and `if:` conditions; read the trigger block against `git diff --name-only`. Prefer reporting the checks you actually saw on the PR.
 

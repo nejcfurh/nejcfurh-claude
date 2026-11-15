@@ -142,12 +142,12 @@ committed_edit() {
 expect "committed edit on the branch is counted" scoped committed_edit \
   'test=tests/foo.test.sh' 'file=hooks/foo.sh'
 
-untracked_pair() {
-  printf 'echo new\n' > "$repo/hooks/new.sh"
-  printf 'bash hooks/new.sh\n' > "$repo/tests/new.test.sh"
-}
-expect "untracked new hook and test are selected" scoped untracked_pair \
-  'test=tests/new.test.sh' 'file=hooks/new.sh'
+untracked_test() { printf 'bash hooks/foo.sh\n' > "$repo/tests/new.test.sh"; }
+expect "untracked new test file is selected" scoped untracked_test \
+  'test=tests/new.test.sh' 'file=tests/new.test.sh'
+
+add_doc() { printf '# new\n' > "$repo/rules/b.md"; }
+expect "new doc does not escalate" scoped add_doc 'test=tests/budget.test.sh'
 
 delete_unreferenced() { git -C "$repo" rm -q scripts/obsolete.sh; }
 expect "deleting an unreferenced file does not escalate" scoped delete_unreferenced \
@@ -161,6 +161,20 @@ expect "file name with a space is listed whole" scoped spaced_name \
 edit_orphan() { echo "# edit" >> "$repo/scripts/orphan.sh"; }
 expect "code file with no related test escalates" full edit_orphan \
   'reason=no related test for changed file: scripts/orphan.sh'
+
+untracked_pair() {
+  printf 'echo new\n' > "$repo/hooks/new.sh"
+  printf 'bash hooks/new.sh\n' > "$repo/tests/new.test.sh"
+}
+expect "untracked new code file escalates even with a named test" full untracked_pair \
+  'reason=new file can reach tests that scan its directory: hooks/new.sh'
+
+committed_new_ts() {
+  printf 'export const r = 1\n' > "$repo/src/route.ts"
+  git -C "$repo" add src/route.ts && git -C "$repo" commit -qm "feat: route"
+}
+expect "committed new TS file escalates" full committed_new_ts \
+  'reason=new file can reach tests that scan its directory: src/route.ts'
 
 edit_unmapped_py() { echo "y = 2" >> "$repo/pkg/unmapped.py"; }
 expect "python module with no test escalates" full edit_unmapped_py \
