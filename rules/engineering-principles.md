@@ -114,7 +114,7 @@ A concern you noticed ("worth checking", "I'll note that") feels handled, and yo
 
 **Spending one of several independent locks is a trade, never a free simplification.** When safety rests on two things at once (a narrow flag *and* an unset switch, a code guard *and* an unissued credential) and a change spends one ahead of need, say which single point of failure the remaining one now is, and prefer splitting the change so each lock is spent when required.
 
-**Launch readiness includes the words.** Check every sentence the user reads (UI, email, brief) against what the test run did, on each branch of the logic. A test observation that contradicts the copy is a defect even when it matches the code. A plan item marked unresolved blocks readiness until its owner decides.
+**Launch readiness includes the words.** Check every sentence the user reads (UI, email, brief) against what the test run did, on each branch of the logic. A test observation that contradicts the copy is a defect even when it matches the code. That covers test names and PR descriptions: a name or summary claiming a property ("rounded down", "never overstated") is checked against the assertion or code it labels. A plan item marked unresolved blocks readiness until its owner decides.
 
 **A check must be derived independently of the change.** Build it from a different starting point: a different pattern shape, a different layer, or the rendered/deployed output instead of the source you touched. A grep reusing the fix's own pattern, a test asserting the constant the code maps over, or a delegate's search that pre-filtered out the files in question confirms the assumption and comes back green.
 
