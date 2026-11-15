@@ -29,7 +29,7 @@ cd "$repo" || exit 1
   printf '%s %s\n' "$f" "$(git hash-object -- "$f" 2>/dev/null)"
 done | {
   # The plan file's format version: bumping it retires every cached plan
-  # written in an older format, whatever its inputs.
-  printf 'plan-format v2\n'
+  # written in an older format or by older discovery rules, whatever its inputs.
+  printf 'plan-format v3\n'
   cat
 } | git hash-object --stdin
