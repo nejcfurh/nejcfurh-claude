@@ -155,6 +155,13 @@ runs_concurrently() {
 }
 check "check and test lines run concurrently" runs_concurrently
 
+exports_base() {
+  rm -f "$out"/*
+  write_plan "check${T}printf '%s' \"\$VERIFY_BASE\" > $out/base"
+  run >/dev/null && [ "$(cat "$out/base")" = "main" ]
+}
+check "plan lines see the resolved base as VERIFY_BASE" exports_base
+
 stale_refused() {
   printf 'not-the-fingerprint\ncheck%strue\n' "$T" > "$plan"
   run >/dev/null
