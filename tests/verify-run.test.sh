@@ -78,6 +78,29 @@ reports_mode() {
 }
 check "last line reports result, mode and selection" reports_mode
 
+files_mapped_drops_counts() {
+  write_plan "test${T}true${T}true {files}"
+  local o
+  o=$(run)
+  printf '%s\n' "$o" | tail -n1 | grep -q 'result=PASS mode=scoped$' \
+    && printf '%s\n' "$o" | grep -q 'selected by each runner' \
+    && ! printf '%s\n' "$o" | grep -q 'selected=0 total='
+}
+check "a runner-mapped ({files}) line reports no name-mapped counts" files_mapped_drops_counts
+
+passing_test_shows_count() {
+  write_plan "test${T}echo '      Tests  36 passed (36)'; echo '   Start at  17:23'; echo '   Duration  1s'; echo"
+  # Anchored: the "=== PASS … <command>" line echoes the same text.
+  run | grep -q '^ *Tests  36 passed (36)'
+}
+check "a passing test line shows the runner's count line the tail would cut" passing_test_shows_count
+
+passing_check_stays_short() {
+  write_plan "check${T}echo 'Tests 9 noise'; echo a; echo b; echo c"
+  ! run | grep -q '^Tests 9 noise'
+}
+check "a passing check line prints only its tail" passing_check_stays_short
+
 no_scoped_form_runs_full() {
   rm -f "$out"/*
   write_plan "test${T}echo full > $out/which"
