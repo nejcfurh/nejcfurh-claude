@@ -54,7 +54,6 @@ tests_q=$(printf '%s\n' "$scope" | sed -n 's/^test=//p' | while IFS= read -r t; 
 files_q=$(printf '%s\n' "$scope" | sed -n 's/^native=//p' | while IFS= read -r t; do printf '%q ' "$t"; done)
 
 echo "verify-run: mode=$mode ($reason)"
-[ -n "$counts" ] && echo "verify-run: $counts"
 
 log_dir=$(mktemp -d "${TMPDIR:-/tmp}/verify-run.XXXXXX") || exit 2
 trap 'rm -rf "$log_dir"' EXIT
@@ -73,6 +72,7 @@ done < <(tail -n +2 "$plan")
 cmds=()
 labels=()
 fulls=()
+uses_tests=""
 while IFS=$'\t' read -r kind cmd scoped; do
   case "$kind" in
     check) cmds+=("$cmd"); labels+=("check"); fulls+=("") ;;
@@ -83,7 +83,7 @@ while IFS=$'\t' read -r kind cmd scoped; do
       fi
       run="$scoped"
       skip=""
-      case "$run" in *"{tests}"*) [ -n "$tests_q" ] || skip=1; run="${run//\{tests\}/$tests_q}" ;; esac
+      case "$run" in *"{tests}"*) uses_tests=1; [ -n "$tests_q" ] || skip=1; run="${run//\{tests\}/$tests_q}" ;; esac
       case "$run" in *"{files}"*) [ -n "$files_q" ] || skip=1; run="${run//\{files\}/$files_q}" ;; esac
       if [ -n "$skip" ]; then
         echo "=== SKIP test (scoped): no related tests for: $cmd"
@@ -92,6 +92,15 @@ while IFS=$'\t' read -r kind cmd scoped; do
       cmds+=("$run"); labels+=("test (scoped)"); fulls+=("$cmd") ;;
   esac
 done < <(tail -n +2 "$plan")
+
+# The counts cover name-mapped suites ({tests}) only. A runner given {files}
+# picks its own tests, so 0/0 there would read as "nothing was tested".
+if [ "$mode" = "scoped" ] && [ -z "$uses_tests" ]; then
+  counts=""
+  echo "verify-run: tests selected by each runner from the changed files; see its summary line"
+elif [ -n "$counts" ]; then
+  echo "verify-run: $counts"
+fi
 
 pids=()
 i=0
@@ -130,6 +139,15 @@ while [ "$i" -lt "${#cmds[@]}" ]; do
   if [ "$status" = "FAIL" ]; then
     cat "$log_dir/$i.out"
   else
+    # The runner's count line, when the tail would cut it off: a pass that
+    # cannot show how many tests ran is not evidence that any did.
+    case "${labels[$i]}" in
+      test*)
+        total_lines=$(wc -l <"$log_dir/$i.out")
+        head -n "$((total_lines > 3 ? total_lines - 3 : 0))" "$log_dir/$i.out" \
+          | grep -E '^[[:space:]]*(Test Files|Test Suites|Tests?):?[[:space:]]+[0-9]' || true
+        ;;
+    esac
     tail -n 3 "$log_dir/$i.out"
   fi
   i=$((i + 1))

@@ -57,8 +57,8 @@ Run `"$HOME/.claude/scripts/verify-run.sh"` (add `--full` for `/verify-done full
 
 - calls `verify-scope.sh` to pick the mode, and prints the mode and the reason;
 - runs `setup` lines one at a time, then every `check` and `test` line at once, with output buffered and printed in plan order;
-- prints the full output of every failing line, and only the tail of each passing one;
-- ends with `verify-run: result=PASS|FAIL mode=scoped|full [selected=N total=M]`.
+- prints the full output of every failing line, and only the tail of each passing one, plus a passing test line's count line (`Tests  36 passed`) when the tail would cut it;
+- ends with `verify-run: result=PASS|FAIL mode=scoped|full [selected=N total=M]`. The counts cover `{tests}` lines only; a scoped run whose test lines all use `{files}` omits them, and the runner's own count line is the evidence that tests ran.
 
 The run goes **full** when any changed file is:
 
