@@ -14,7 +14,8 @@
 #
 # Usage: verify-run.sh [--full] [--base <ref>]
 # Exit: 0 every line passed, 1 a line failed, 3 plan missing, stale or not v2
-# (rediscover and rewrite it). The last line of output is
+# (rediscover and rewrite it). A missing or stale plan is first replaced by a
+# sibling worktree's plan whose fingerprint matches. The last line of output is
 # `verify-run: result=PASS|FAIL mode=scoped|full …` — pass that mode to
 # record-verify-pass.sh.
 set -u
@@ -36,12 +37,27 @@ repo=$(git rev-parse --show-toplevel 2>/dev/null) || {
 cd "$repo" || exit 2
 plan="$(git rev-parse --absolute-git-dir)/verify-done-plan"
 
+fingerprint=$("$here/verify-plan-fingerprint.sh")
 stale() { echo "verify-run: $1 — rediscover the plan and rewrite $plan" >&2; exit 3; }
-[ -f "$plan" ] || stale "no plan cache"
-[ "$(head -n1 "$plan")" = "$("$here/verify-plan-fingerprint.sh")" ] || stale "plan cache is stale"
-if tail -n +2 "$plan" | grep -v '^$' | grep -qvE $'^(setup|check|test)\t'; then
-  stale "plan cache is not in the tagged v2 format"
+is_v2() { ! tail -n +2 "$1" | grep -v '^$' | grep -qvE $'^(setup|check|test)\t'; }
+usable() { [ -f "$1" ] && [ "$(head -n1 "$1")" = "$fingerprint" ] && is_v2 "$1"; }
+
+# A fresh worktree has no plan of its own. A sibling checkout's plan with the
+# same fingerprint was discovered from identical CI and manifest inputs.
+if ! usable "$plan"; then
+  common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+  if [ -n "$common" ]; then
+    for candidate in "$common/verify-done-plan" "$common"/worktrees/*/verify-done-plan; do
+      [ "$candidate" != "$plan" ] && usable "$candidate" || continue
+      cp "$candidate" "$plan" && echo "verify-run: reused the plan from $candidate"
+      break
+    done
+  fi
 fi
+
+[ -f "$plan" ] || stale "no plan cache"
+[ "$(head -n1 "$plan")" = "$fingerprint" ] || stale "plan cache is stale"
+is_v2 "$plan" || stale "plan cache is not in the tagged v2 format"
 
 scope=$("$here/verify-scope.sh" ${scope_args[@]+"${scope_args[@]}"}) || {
   echo "verify-run: verify-scope.sh failed" >&2
