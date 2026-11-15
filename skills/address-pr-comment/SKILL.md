@@ -117,6 +117,13 @@ Re-run the relevant/failing tests and the project's check commands (detect from
 package scripts, CI config, or CLAUDE.md — never assume the package manager).
 Run integration/build only if you touched code that warrants it.
 
+**A review fix that alters what renders is a UI change**, even when the finding
+read as a rename, a token swap or a filter tweak. Run the `verify-frontend-change`
+skill before pushing. "The classes compile to the same CSS" or "the markup is
+unchanged" is a deduction, not a check: a fix that changes which elements appear,
+or under which condition, passes every test and is only visible on screen. If you
+cannot run the app, say in the report that the fix is unverified in a browser.
+
 ## Step 7 — Commit + push + report
 
 **One** commit to the same remote branch. The subject needs a conventional type —

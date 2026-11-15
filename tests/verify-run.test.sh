@@ -176,6 +176,26 @@ missing_refused() {
 }
 check "missing plan is refused with exit 3" missing_refused
 
+sibling_plan_reused() (
+  wt=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-wt.XXXXXX") && rmdir "$wt"
+  (cd "$repo" && git stash -q -u -m t && git worktree add -q -b work/other "$wt" main && git stash pop -q) || return 1
+  write_plan "check${T}touch $out/sibling-ran"
+  wt_plan="$(cd "$wt" && git rev-parse --absolute-git-dir)/verify-done-plan"
+  rm -f "$wt_plan" "$out/sibling-ran"
+  (cd "$wt" && bash "$SUT" --base main >/dev/null 2>&1)
+  rc=$?
+  ok=1
+  [ "$rc" -eq 0 ] && [ -f "$out/sibling-ran" ] && cmp -s "$plan" "$wt_plan" && ok=0
+  # A sibling plan with another fingerprint is never borrowed.
+  printf 'not-the-fingerprint\ncheck%strue\n' "$T" > "$plan"
+  rm -f "$wt_plan"
+  (cd "$wt" && bash "$SUT" --base main >/dev/null 2>&1)
+  [ $? -eq 3 ] && [ ! -f "$wt_plan" ] || ok=1
+  (cd "$repo" && git worktree remove --force "$wt")
+  exit "$ok"
+)
+check "a fresh worktree reuses a sibling plan with the same fingerprint, never a stale one" sibling_plan_reused
+
 rm -rf "$repo" "$out"
 
 echo ""
