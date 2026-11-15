@@ -39,6 +39,8 @@ A stack keeps dependent concerns separately reviewable; it is what lets "one PR 
 
 Reviewability is the thing being optimised: two PRs that each read in one sitting beat one nobody finishes.
 
+**An instruction to stack names the base, not always the work.** When the PR in hand does not depend on the base named, "stack it on X" usually means other, planned work that does; ask which work goes on X before stacking. An independent fix stacked on an unmerged branch waits for that branch to merge.
+
 **Mechanics.** `gh stack` (`gh extension install github/gh-stack`) owns branch topology; `git add` + `git commit` own content. Never `gh stack init|add -A -m` — it commits behind the gates.
 
 **Slicing.**
