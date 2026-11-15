@@ -49,7 +49,7 @@ Never spin up a fleet unprompted — this is a cost gate, since one run can spaw
 
 **A claim is checked per step, not once per session.** Where several sessions share a plan, re-read the linked sessions and the shared notes folder before starting each step of it, and before fixing shared state such as a red base branch — assignments move between turns, and two sessions building the same piece only discover it at the PR. Starting a step, leave a one-line claim in the notes folder (step, branch, worktree); a claim found there means ask, not race.
 
-**A sibling you cannot see races you too.** Before creating something meant to exist once per target on shared state — an experiment on a flag, a ticket, a scheduled reminder — list what exists for it. After the write, read it back and count: two means another session did the same; stop and ask which to keep.
+**A sibling you cannot see races you too.** Before creating something meant to exist once per target on shared state — an experiment on a flag, a ticket, a scheduled reminder — list what exists for it. After the write, read it back and count: two means another session did the same; stop and ask which to keep. This covers a fix as well as a creation: before you diagnose a reported failure (a flaky test, an error, a bug), search the tracker and the open PRs by the failing file or test name. Someone often owns it already, and the search costs one call against a whole investigation. When you delegate such a failure, run the search first and put its result in the brief.
 
 ## Node discipline
 
