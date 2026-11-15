@@ -13,6 +13,8 @@
 # --findRelatedTests`). Commands run from the repository root.
 #
 # Usage: verify-run.sh [--full] [--base <ref>]
+# Every plan line sees the resolved PR base as $VERIFY_BASE, so a guarded
+# line diffs against the same base the test selection used.
 # Exit: 0 every line passed, 1 a line failed, 3 plan missing, stale or not v2
 # (rediscover and rewrite it). The last line of output is
 # `verify-run: result=PASS|FAIL mode=scoped|full …` — pass that mode to
@@ -50,6 +52,10 @@ scope=$("$here/verify-scope.sh" ${scope_args[@]+"${scope_args[@]}"}) || {
 mode=$(printf '%s\n' "$scope" | sed -n 's/^mode=//p')
 reason=$(printf '%s\n' "$scope" | sed -n 's/^reason=//p')
 counts=$(printf '%s\n' "$scope" | sed -n 's/^\(selected=.*\)/\1/p')
+verify_base=$(printf '%s\n' "$scope" | sed -n 's/^base=//p' | tail -n1)
+if [ -n "$verify_base" ] && [ "$verify_base" != unknown ]; then
+  export VERIFY_BASE="$verify_base"
+fi
 tests_q=$(printf '%s\n' "$scope" | sed -n 's/^test=//p' | while IFS= read -r t; do printf '%q ' "$t"; done)
 files_q=$(printf '%s\n' "$scope" | sed -n 's/^native=//p' | while IFS= read -r t; do printf '%q ' "$t"; done)
 
