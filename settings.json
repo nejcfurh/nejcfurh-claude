@@ -377,5 +377,6 @@
   "skipWorkflowUsageWarning": true,
   "editorMode": "normal",
   "autoCompactEnabled": true,
-  "remoteControlAtStartup": true
+  "remoteControlAtStartup": true,
+  "outputStyle": "Concise"
 }
