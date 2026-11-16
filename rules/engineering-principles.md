@@ -53,6 +53,7 @@ Around every fix that targets a *pattern* rather than one call site:
 
 - **Before building:** grep for how the same *class* of problem is already solved ("must survive a page unload", "must be idempotent"). That is the shape the codebase expects; a new mechanism beside three existing ones is what a reviewer catches.
 - **Before declaring done:** grep for the literal pattern you fixed. Siblings (a paired error boundary, a duplicated handler, a copy-pasted route) routinely carry the same defect.
+- **Before changing what a shared unit needs to run** (a client-only hook, a required prop, a runtime directive): list every importer and render each route that reaches it. A typecheck passes while a server render of it fails.
 
 **Grep the history too, when the thing you are adding used to exist.** Restoring behaviour a recent rewrite removed (a link, badge, field, tracking parameter): the deleted implementation is the specification, with decisions the request will not restate. Find it (`git log --diff-filter=D -- <area>`, or the `--stat` of the merge you pulled), read it first, and say which decisions you kept. Mirror case: reverting a file to its pre-feature version also reverts unrelated fixes made meanwhile; diff the two and keep what the feature did not own.
 
@@ -115,6 +116,8 @@ A concern you noticed ("worth checking", "I'll note that") feels handled, and yo
 **Spending one of several independent locks is a trade, never a free simplification.** When safety rests on two things at once (a narrow flag *and* an unset switch, a code guard *and* an unissued credential) and a change spends one ahead of need, say which single point of failure the remaining one now is, and prefer splitting the change so each lock is spent when required.
 
 **Launch readiness includes the words.** Check every sentence the user reads (UI, email, brief) against what the test run did, on each branch of the logic. A test observation that contradicts the copy is a defect even when it matches the code. That covers test names and PR descriptions: a name or summary claiming a property ("rounded down", "never overstated") is checked against the assertion or code it labels. A plan item marked unresolved blocks readiness until its owner decides.
+
+**Removing friction must not remove an input a check reads.** Before hiding or prefilling a field to cut steps, name every verification that consumes it (an address or postcode match, a fraud score, an identity check). If the prefill can differ from what that check expects, keep the field visible and editable.
 
 **A check must be derived independently of the change.** Build it from a different starting point: a different pattern shape, a different layer, or the rendered/deployed output instead of the source you touched. A grep reusing the fix's own pattern, a test asserting the constant the code maps over, or a delegate's search that pre-filtered out the files in question confirms the assumption and comes back green.
 

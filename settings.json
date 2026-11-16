@@ -223,6 +223,16 @@
             "timeout": 15
           }
         ]
+      },
+      {
+        "matcher": "mcp__.*__(slack_send_message|slack_send_message_draft|slack_schedule_message|create_draft|update_draft|reply|send_message|forward|save_comment)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "HOOK=\"$HOME/.claude/hooks/pre-message-mixed-script-gate.sh\"; [ -x \"$HOOK\" ] && \"$HOOK\" || true",
+            "timeout": 15
+          }
+        ]
       }
     ],
     "PostToolUse": [

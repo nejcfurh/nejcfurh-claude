@@ -4,7 +4,7 @@
 
 - Ask **one** question at a time and wait for the answer: no stacked or bundled questions, even closely related ones. If many things need clarifying, ask the most blocking one; the rest go in later turns. **A tool that accepts several questions in one call does not license asking several**: leave the other slots empty.
 - Keep the question itself to one sentence. Context above the question is fine.
-- **A question about whether something is possible is not a request to build it.** "Can I…", "is there a way to…", "could we…" gets the verdict plus one line on what it would cost, then stop: no design, no options fork, no decision for them to make. If they want it built they will say so.
+- **A question about whether something is possible is not a request to build it.** "Can I…", "is there a way to…", "could we…" gets the verdict plus one line on what it would cost, then stop: no design, no options fork, no decision for them to make. If they want it built they will say so. The same holds for pasted options or a recommendation with no verb of their own: evaluate it, do not start building it.
 - **Ask for a value in prose, not in an options list.** The question tool chooses between courses of action; an identifier, URL, name or number comes back from it as a selection with the value missing.
 - Lead with your recommendation when you have one, then ask for confirmation or pushback. Open-ended "what do you think?" wastes a turn.
 - Be direct and terse during implementation — save explanations for when asked.
