@@ -20,7 +20,10 @@ fail=0
 
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@test
 export GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@test
-unset VERIFY_DONE_FULL
+unset VERIFY_DONE_FULL VERIFY_RUN_LOCKED VERIFY_DONE_SLOTS VERIFY_DONE_WAIT
+# Never take, or wait on, the real machine-wide gate slots.
+export VERIFY_LOCK_DIR
+VERIFY_LOCK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-locks.XXXXXX") || exit 1
 
 check() { # check <name> <command…> — passes when the command exits 0
   local name="$1"
@@ -203,7 +206,53 @@ sibling_plan_reused() (
 )
 check "a fresh worktree reuses a sibling plan with the same fingerprint, never a stale one" sibling_plan_reused
 
-rm -rf "$repo" "$out"
+gate_busy() {
+  rm -f "$out"/*
+  write_plan "check${T}touch $out/ran"
+  sleep 60 &
+  local holder=$!
+  mkdir -p "$VERIFY_LOCK_DIR/gate/slot-1"
+  echo "$holder" >"$VERIFY_LOCK_DIR/gate/slot-1/pid"
+  local o rc
+  o=$(VERIFY_DONE_SLOTS=1 VERIFY_DONE_WAIT=0 run)
+  rc=$?
+  kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+  rm -rf "$VERIFY_LOCK_DIR/gate"
+  [ "$rc" -eq 75 ] && [ ! -f "$out/ran" ] \
+    && printf '%s\n' "$o" | tail -n1 | grep -q 'result=BUSY'
+}
+check "a run finding every gate slot taken reports BUSY and runs nothing" gate_busy
+
+gate_slot_released() {
+  write_plan "check${T}true"
+  VERIFY_DONE_SLOTS=1 VERIFY_DONE_WAIT=0 run >/dev/null \
+    && VERIFY_DONE_SLOTS=1 VERIFY_DONE_WAIT=0 run >/dev/null \
+    && [ -z "$(ls -A "$VERIFY_LOCK_DIR/gate")" ]
+}
+check "a finished run frees its gate slot" gate_slot_released
+
+lines_not_locked_again() {
+  rm -f "$out"/*
+  write_plan "check${T}printf '%s' \"\$VERIFY_RUN_LOCKED\" > $out/locked"
+  VERIFY_DONE_SLOTS=1 run >/dev/null && [ "$(cat "$out/locked")" = "1" ]
+}
+check "plan lines run inside the slot, marked as already locked" lines_not_locked_again
+
+stale_not_delayed() {
+  printf 'not-the-fingerprint\ncheck%strue\n' "$T" > "$plan"
+  sleep 60 &
+  local holder=$!
+  mkdir -p "$VERIFY_LOCK_DIR/gate/slot-1"
+  echo "$holder" >"$VERIFY_LOCK_DIR/gate/slot-1/pid"
+  VERIFY_DONE_SLOTS=1 VERIFY_DONE_WAIT=30 run >/dev/null
+  local rc=$?
+  kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+  rm -rf "$VERIFY_LOCK_DIR/gate"
+  [ "$rc" -eq 3 ]
+}
+check "a stale plan is refused at once, without waiting for a slot" stale_not_delayed
+
+rm -rf "$repo" "$out" "$VERIFY_LOCK_DIR"
 
 echo ""
 echo "$pass passed, $fail failed"

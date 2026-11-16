@@ -70,7 +70,9 @@ reset_tree() {
   git -C "$repo" clean -fdq 2>/dev/null
 }
 
-scope() { (cd "$repo" && bash "$SUT" --base main "$@" 2>/dev/null); }
+# SCOPE_BASE=HEAD diffs against fixtures a setup just committed, so they count
+# as existing code rather than as this branch's changes.
+scope() { (cd "$repo" && bash "$SUT" --base "${SCOPE_BASE:-main}" "$@" 2>/dev/null); }
 
 # expect <name> <mode> <setup-fn> [grep patterns that must appear…]
 expect() {
@@ -173,8 +175,41 @@ committed_new_ts() {
   printf 'export const r = 1\n' > "$repo/src/route.ts"
   git -C "$repo" add src/route.ts && git -C "$repo" commit -qm "feat: route"
 }
-expect "committed new TS file escalates" full committed_new_ts \
-  'reason=new file can reach tests that scan its directory: src/route.ts'
+expect "new TS file escalates when no directory-scanning test can be found" full committed_new_ts \
+  'reason=new file and no directory-scanning test found to cover it: src/route.ts'
+
+# A census test lists src/ instead of importing it; a plain test does neither.
+add_census() {
+  mkdir -p "$repo/src/__tests__"
+  printf "import { readdirSync } from 'fs'\nreaddirSync('src')\n" > "$repo/src/__tests__/census.test.ts"
+  printf "import { a } from '../app'\n" > "$repo/src/__tests__/plain.test.ts"
+  git -C "$repo" add src/__tests__ && git -C "$repo" commit -qm "test: census"
+}
+new_ts_with_census() {
+  add_census
+  printf 'export const r = 1\n' > "$repo/src/route.ts"
+}
+SCOPE_BASE=HEAD expect "new TS file stays scoped and adds the directory-scanning tests" scoped new_ts_with_census \
+  'reason=new file: related tests plus 1 directory-scanning tests' \
+  'native=src/route.ts' 'native=src/__tests__/census.test.ts'
+SCOPE_BASE=HEAD check "a test that does not scan is not added" lacks 'native=src/__tests__/plain.test.ts'
+
+new_ts_with_helper() {
+  mkdir -p "$repo/src/__tests__"
+  printf "import { globSync } from 'glob'\nexport const files = globSync('src/**')\n" > "$repo/src/__tests__/sourceScan.ts"
+  printf "import { files } from './sourceScan'\n" > "$repo/src/__tests__/boundary.test.ts"
+  git -C "$repo" add src/__tests__ && git -C "$repo" commit -qm "test: boundary"
+  printf 'export const r = 1\n' > "$repo/src/route.ts"
+}
+SCOPE_BASE=HEAD expect "a test using a scanning helper is added too" scoped new_ts_with_helper \
+  'native=src/__tests__/boundary.test.ts' 'native=src/route.ts'
+
+new_sh_with_census() {
+  add_census
+  printf 'echo new\n' > "$repo/hooks/new.sh"
+}
+SCOPE_BASE=HEAD expect "a new non-JS/TS file still escalates when scanning tests exist" full new_sh_with_census \
+  'reason=new file can reach tests that scan its directory: hooks/new.sh'
 
 edit_unmapped_py() { echo "y = 2" >> "$repo/pkg/unmapped.py"; }
 expect "python module with no test escalates" full edit_unmapped_py \

@@ -3,10 +3,12 @@
 # related to the files this branch changes (mode=scoped), or everything
 # (mode=full). Full is chosen whenever a changed file can affect tests it is
 # not named in — CI and runner config, manifests and lockfiles, test
-# infrastructure, a NEW code file — or when a changed code file maps to no
-# test at all. A new file escalates because tests that enumerate a directory
-# (route censuses, registries, "every X has a Y" checks) reach it by listing,
-# never by import or by name, so no related-test selection can find them.
+# infrastructure, a new non-JS/TS code file — or when a changed code file maps
+# to no test at all. Tests that enumerate a directory (route censuses,
+# registries, "every X has a Y" checks) reach a new file by listing, never by
+# import or by name. For a new JS/TS file those tests are found by content and
+# added to native=, so the run stays scoped; when none can be found, or the
+# new file is not JS/TS, the run goes full.
 #
 # Changed files = everything differing from the merge-base with the PR base
 # (committed, staged, unstaged, deleted) plus untracked, non-ignored files.
@@ -172,14 +174,47 @@ tests_named_for() {
   done
 }
 
+# JS/TS test files that list directories instead of importing what they check
+# (route censuses, "every X has a Y" checks): a new file reaches them by
+# listing alone, so the import graph never selects them. Found at run time, so
+# a new census test is covered the day it lands. A scanning helper inside a
+# test directory brings in every test file that names it.
+native_globs=('*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' '*.mts' '*.cts')
+scan_re='readdirSync|readdir\(|opendirSync|globSync|globby|fast-glob|tinyglobby|new Glob\(|import\.meta\.glob|walkSync|git ls-files'
+scanning_tests() {
+  scanners=$(git -c core.quotePath=false grep -lE --untracked -e "$scan_re" -- "${native_globs[@]}" 2>/dev/null)
+  {
+    printf '%s\n' "$scanners" | while IFS= read -r s; do
+      [ -n "$s" ] || continue
+      if is_test_file "$s"; then
+        printf '%s\n' "$s"
+        continue
+      fi
+      case "/$s" in
+        */__tests__/* | */test/* | */tests/* | */test-utils/* | */testutils/* | */spec/*) ;;
+        *) continue ;;
+      esac
+      stem=$(basename "$s")
+      stem="${stem%.*}"
+      [ "${#stem}" -ge 4 ] || continue
+      git -c core.quotePath=false grep -lF --untracked -e "$stem" -- "${native_globs[@]}" 2>/dev/null \
+        | while IFS= read -r t; do is_test_file "$t" && printf '%s\n' "$t"; done
+    done
+  } | sort -u
+}
+
 selected=""
 native=""
+first_new_native=""
 while IFS= read -r f; do
   [ -n "$f" ] || continue
   if reason=$(is_trigger "$f"); then full "$reason"; fi
   if printf '%s\n' "$added_files" | grep -qxF -- "$f" \
     && ! is_test_file "$f" && ! is_snapshot "$f" && ! is_inert "$f"; then
-    full "new file can reach tests that scan its directory: $f"
+    # A new JS/TS file stays scoped: its runner maps the import graph, and the
+    # directory-scanning tests are added below. Other new files still go full.
+    is_native "$f" || full "new file can reach tests that scan its directory: $f"
+    [ -n "$first_new_native" ] || first_new_native="$f"
   fi
 
   if is_snapshot "$f"; then
@@ -241,8 +276,19 @@ if [ "$total" -gt 0 ] && [ $((n * 2)) -ge "$total" ]; then
   full "selection covers $n of $total test files — no cheaper than the full suite"
 fi
 
+scoped_reason="no escalation trigger matched"
+if [ -n "$first_new_native" ]; then
+  scans=$(scanning_tests)
+  # Finding none means none exist or the search cannot see how they list
+  # files; either way only the full suite is known to reach the new file.
+  [ -n "$scans" ] || full "new file and no directory-scanning test found to cover it: $first_new_native"
+  native="$native
+$scans"
+  scoped_reason="new file: related tests plus $(printf '%s\n' "$scans" | grep -c .) directory-scanning tests"
+fi
+
 echo "mode=scoped"
-echo "reason=no escalation trigger matched"
+echo "reason=$scoped_reason"
 echo "base=$base"
 printf '%s\n' "$changed_files" | sed 's/^/file=/'
 printf '%s\n' "$native" | grep -v '^$' | sort -u | sed 's/^/native=/'
