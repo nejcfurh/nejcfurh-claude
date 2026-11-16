@@ -22,7 +22,9 @@ check<TAB><command>                       lint, typecheck, build, …; always fu
 test<TAB><full command>[<TAB><scoped command>]
 ```
 
-Commands run from the repository root. Use `cd <relative dir> && …` for a subdirectory, never an absolute path. Every `check` and `test` line runs **concurrently**, so one line = one CI job. Steps that share state go on one line, joined with `&&`: steps within one CI job, jobs writing the same build output, and jobs needing the same local database or container.
+Commands run from the repository root. Use `cd <relative dir> && …` for a subdirectory, never an absolute path. Every `check` and `test` line runs **concurrently**, so one line = one CI job. Steps that share state go on one line, joined with `&&`: steps within one CI job, jobs writing the same build output, and jobs needing the same database or container on this machine.
+
+A line that uses a fixed-port service on this machine (a database or container every worktree shares) runs under `"$HOME/.claude/scripts/verify-lock.sh" <service> -- <command>`, so only one session uses it at a time. Two sessions migrating, resetting and testing one database at once produce failures and passes that say nothing about either branch. Wrap the whole line, setup steps included: `"$HOME/.claude/scripts/verify-lock.sh" app-db -- bash -c '<setup> && <tests>'`.
 
 A scoped command names its inputs with placeholders:
 
@@ -33,10 +35,12 @@ Per runner:
 
 | Runner | full | scoped |
 | --- | --- | --- |
-| vitest | `pnpm vitest run` | `pnpm vitest related --run {files}` |
-| jest | `npx jest` | `npx jest --findRelatedTests {files}` |
-| pytest | `pytest` (add `-n auto` only if pytest-xdist is already installed) | `pytest {tests}` |
+| vitest | `pnpm vitest run --maxWorkers=4` | `pnpm vitest related --run --maxWorkers=4 {files}` |
+| jest | `npx jest --maxWorkers=4` | `npx jest --maxWorkers=4 --findRelatedTests {files}` |
+| pytest | `pytest` (add `-n 4` only if pytest-xdist is already installed) | `pytest {tests}` |
 | shell suites (this config repo) | `bash tests/run-all.sh` | `bash tests/run-all.sh {tests}` |
+
+Cap test workers at 4 on both forms, unless the project's own config already sets a lower cap. Several sessions gate on one machine at once, and an uncapped runner takes a worker per core in each of them. Measured on a 2,000-file vitest suite: the same wall time as uncapped, with 42% less CPU.
 
 Use the project's real script and package manager, not these literals. Never add `--passWithNoTests` to a scoped form: when the runner reports no related tests, `verify-run.sh` runs that line's full form instead. Leave the scoped form out when the runner cannot take a file subset, or runs from a subdirectory and cannot take repo-root paths. That line then always runs in full.
 
@@ -48,6 +52,7 @@ Discovery:
 - Do NOT invent checks. If CI doesn't run a formatter, don't run one. If there is no CI config, fall back to the obvious package.json scripts (`lint`, `typecheck`, `test`, `build`) and say you did so.
 - Read the project's own instructions (its CLAUDE.md, AGENTS.md) before writing the plan. A check they say not to run locally (a production build, a full e2e suite) stays out of the plan, however CI runs it; the verdict then names it as left to CI. The project knows what its machine can afford; CI is the gate for what it excludes.
 - A suite that cannot run in full locally (it needs shared infrastructure, or the project says not to) still gets a subset — pick it by import graph from the changed source (`vitest related --run {files}`, `jest --findRelatedTests {files}`, with that suite's config), never by which test files changed. An unchanged test that asserts the exact shape of a type the branch extended is the failure this catches; selecting changed test files skips it and CI fails it.
+- A suite that needs a database or container (an integration suite) gets a scoped form too: its setup steps, then the import-graph subset with that suite's config (`… && npx vitest related --run --maxWorkers=4 --config <its config> {files}`), all under `verify-lock.sh`. Changes the import graph cannot see reach every test in such a suite: migrations and schema files, its seed or baseline scripts, its compose file, its setup file and config. The scoped form checks `git diff --name-only "$VERIFY_BASE"...HEAD` for those paths first and runs the full suite when one matches.
 - Read each job's trigger too (`on:` branches and `paths`, job-level `if:`). A job CI runs only for some changes gets a guarded plan line: run it only when `git diff --name-only origin/<base>...HEAD` matches its `paths` for the event the branch will use, and otherwise print that it was skipped and why. `<base>` is the branch's PR base: for a stacked branch that is the branch below it, not trunk, because CI's path filter sees only the PR's own changed files — diffing a stacked branch against trunk re-triggers the tier for the commits below it. Never cache a path-filtered job unconditionally — it blocks pushes CI would never block, and a job that needs shared local infrastructure (a database, a container stack) fails there for reasons that have nothing to do with the branch.
 - Write that guard's base as `"$VERIFY_BASE"`, never a branch name. `verify-run.sh` exports the base it resolved (from `--base`, or the detected parent) to every plan line, so a stacked branch's guard diffs against the branch below it.
 - Install steps (`npm ci`, `pnpm install --frozen-lockfile`, …) exist because CI runners start empty. Make them `setup` lines and guard them: skip when the installed tree already matches the lockfile, and when `node_modules` is a symlink shared between worktrees, fail with a message instead of reinstalling, since a reinstall there replaces the tree every other checkout uses.
@@ -56,8 +61,9 @@ Write the cache: the fingerprint as line 1, then the tagged lines.
 
 ## 2. Run the checks
 
-Run `"$HOME/.claude/scripts/verify-run.sh"` (add `--full` for `/verify-done full`; add `--base origin/<branch>` when the PR base is not what `detect-parent-branch.sh` finds). It:
+Run `"$HOME/.claude/scripts/verify-run.sh"` (add `--full` for `/verify-done full`; add `--base origin/<branch>` when the PR base is not what `detect-parent-branch.sh` finds), with the Bash timeout at 600000. It:
 
+- waits for one of 2 machine-wide gate slots, so parallel sessions do not all run at once. After 240 s it ends with `verify-run: result=BUSY` (exit 75): run it again once another session's gate has finished. BUSY is not a verdict;
 - calls `verify-scope.sh` to pick the mode, and prints the mode and the reason;
 - runs `setup` lines one at a time, then every `check` and `test` line at once, with output buffered and printed in plan order;
 - prints the full output of every failing line, and only the tail of each passing one, plus a passing test line's count line (`Tests  36 passed`) when the tail would cut it;
@@ -69,7 +75,8 @@ The run goes **full** when any changed file is:
 - a package manifest or lockfile (`package.json`, `*.lock`, `pyproject.toml`, `go.mod`, …) or a runtime-version pin;
 - test or build config (`tsconfig*.json`, `vitest.config.*`, `jest.config.*`, `babel.config.*`, `conftest.py`, `pytest.ini`, …);
 - test infrastructure (`__mocks__/`, `fixtures/`, test helpers, and any non-test file inside a test directory, such as `tests/run-all.sh`);
-- a code file with no related test (no test named after it, none naming it, none for a script that sources it).
+- a code file with no related test (no test named after it, none naming it, none for a script that sources it);
+- a new code file that is not JS/TS, or a new JS/TS file in a repo where no directory-scanning test can be found. A new JS/TS file otherwise stays scoped: its runner maps the import graph, and every test that lists a directory instead of importing it (`readdir`, `glob`, `git ls-files`, or a helper in a test directory that does) is added to `{files}`.
 
 It also goes full when there is no merge-base with the PR base, when nothing differs from the base, and when the selection is half the test files or more. Docs nobody's test reads (Markdown, images) and deleted files nothing references need no tests and do not escalate.
 
