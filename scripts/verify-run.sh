@@ -16,12 +16,19 @@
 # Every plan line sees the resolved PR base as $VERIFY_BASE, so a guarded
 # line diffs against the same base the test selection used.
 # Exit: 0 every line passed, 1 a line failed, 3 plan missing, stale or not v2
-# (rediscover and rewrite it). A missing or stale plan is first replaced by a
-# sibling worktree's plan whose fingerprint matches. The last line of output is
-# `verify-run: result=PASS|FAIL mode=scoped|full …` — pass that mode to
+# (rediscover and rewrite it), 75 too many gates already running (re-run
+# later). A missing or stale plan is first replaced by a sibling worktree's
+# plan whose fingerprint matches. The last line of output is
+# `verify-run: result=PASS|FAIL|BUSY mode=scoped|full …` — pass that mode to
 # record-verify-pass.sh.
+#
+# At most $VERIFY_DONE_SLOTS gates (default 2) run on this machine at once;
+# another waits up to $VERIFY_DONE_WAIT seconds (default 240) for a slot.
+# Parallel sessions each starting a full test run otherwise ask for several
+# times the machine's cores. VERIFY_DONE_SLOTS=0 turns the cap off.
 set -u
 
+orig_args=("$@")
 scope_args=()
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -60,6 +67,20 @@ fi
 [ -f "$plan" ] || stale "no plan cache"
 [ "$(head -n1 "$plan")" = "$fingerprint" ] || stale "plan cache is stale"
 is_v2 "$plan" || stale "plan cache is not in the tagged v2 format"
+
+# Take a gate slot only once the plan is known good, so a stale plan is
+# reported at once instead of after a wait. The run under the slot repeats
+# the checks above, which are cheap.
+slots="${VERIFY_DONE_SLOTS:-2}"
+if [ -z "${VERIFY_RUN_LOCKED:-}" ] && [ "$slots" != 0 ]; then
+  VERIFY_RUN_LOCKED=1 "$here/verify-lock.sh" --slots "$slots" --wait "${VERIFY_DONE_WAIT:-240}" \
+    gate -- bash "$here/verify-run.sh" ${orig_args[@]+"${orig_args[@]}"}
+  rc=$?
+  if [ "$rc" -eq 75 ]; then
+    echo "verify-run: result=BUSY ($slots gates already running on this machine; re-run when one finishes)"
+  fi
+  exit "$rc"
+fi
 
 scope=$("$here/verify-scope.sh" ${scope_args[@]+"${scope_args[@]}"}) || {
   echo "verify-run: verify-scope.sh failed" >&2
