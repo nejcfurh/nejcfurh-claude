@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Run every test suite in this directory — concurrently — and exit non-zero
+# Run every test suite in this directory — several at once — and exit non-zero
 # if any suite fails. Suites are hermetic (mktemp fixtures, env-var
-# overrides for any shared state), so parallelism only changes wall-clock
-# (~33s serial -> ~10s). Output is buffered per suite and printed in stable
-# alphabetical order, so logs read identically to the old serial runner.
+# overrides for any shared state), so parallelism only changes wall-clock.
+# Output is buffered per suite and printed in stable alphabetical order, so
+# logs read identically to a serial runner.
 set -u
 
 # A gate bypass exported in the developer's shell silently inverts every
@@ -54,23 +54,30 @@ if [ $# -gt 0 ]; then
 else
   suites=("$SCRIPT_DIR"/*.test.sh)
 fi
-pids=()
 names=()
 for suite in "${suites[@]}"; do
-  name=$(basename "$suite")
-  names+=("$name")
-  bash "$suite" >"$LOG_DIR/$name.out" 2>&1 &
-  pids+=("$!")
+  names+=("$(basename "$suite")")
 done
 
+# At most $RUN_ALL_JOBS suites at once (default 8; 0 = all at once). All 54
+# started together cost ~60% more CPU than run one by one, almost all of it
+# kernel time from process-spawn contention, and finish no sooner.
+jobs="${RUN_ALL_JOBS:-8}"
+case "$jobs" in
+  "" | *[!0-9]*) echo "FATAL: RUN_ALL_JOBS must be a whole number, got: $jobs" >&2; exit 1 ;;
+  0) jobs=${#suites[@]} ;;
+esac
+# xargs -P, not `wait -n`: macOS ships bash 3.2.
+# shellcheck disable=SC2016 # $1/$2 belong to the inner bash -c
+printf '%s\0' "${suites[@]}" | xargs -0 -n 1 -P "$jobs" bash -c '
+  name=$(basename "$2")
+  bash "$2" >"$1/$name.out" 2>&1 || : >"$1/$name.failed"
+' run-suite "$LOG_DIR"
+
 failed=0
-i=0
-for pid in "${pids[@]}"; do
-  if ! wait "$pid"; then
-    failed=1
-    : >"$LOG_DIR/${names[$i]}.failed"
-  fi
-  i=$((i + 1))
+for name in "${names[@]}"; do
+  [ -f "$LOG_DIR/$name.out" ] || : >"$LOG_DIR/$name.failed"
+  [ -f "$LOG_DIR/$name.failed" ] && failed=1
 done
 
 i=0

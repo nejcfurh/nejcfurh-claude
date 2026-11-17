@@ -22,7 +22,7 @@ check<TAB><command>                       lint, typecheck, build, …; always fu
 test<TAB><full command>[<TAB><scoped command>]
 ```
 
-Commands run from the repository root. Use `cd <relative dir> && …` for a subdirectory, never an absolute path. Every `check` and `test` line runs **concurrently**, so one line = one CI job. Steps that share state go on one line, joined with `&&`: steps within one CI job, jobs writing the same build output, and jobs needing the same database or container on this machine.
+Commands run from the repository root. Use `cd <relative dir> && …` for a subdirectory, never an absolute path. `check` and `test` lines run **concurrently**, two at a time (`VERIFY_DONE_LINES`), so one line = one CI job. Steps that share state go on one line, joined with `&&`: steps within one CI job, jobs writing the same build output, and jobs needing the same database or container on this machine.
 
 A line that uses a fixed-port service on this machine (a database or container every worktree shares) runs under `"$HOME/.claude/scripts/verify-lock.sh" <service> -- <command>`, so only one session uses it at a time. Two sessions migrating, resetting and testing one database at once produce failures and passes that say nothing about either branch. Wrap the whole line, setup steps included: `"$HOME/.claude/scripts/verify-lock.sh" app-db -- bash -c '<setup> && <tests>'`.
 
@@ -65,7 +65,7 @@ Run `"$HOME/.claude/scripts/verify-run.sh"` (add `--full` for `/verify-done full
 
 - waits for one of 2 machine-wide gate slots, so parallel sessions do not all run at once. After 240 s it ends with `verify-run: result=BUSY` (exit 75): run it again once another session's gate has finished. BUSY is not a verdict;
 - calls `verify-scope.sh` to pick the mode, and prints the mode and the reason;
-- runs `setup` lines one at a time, then every `check` and `test` line at once, with output buffered and printed in plan order;
+- runs `setup` lines one at a time, then the `check` and `test` lines, at most `$VERIFY_DONE_LINES` at once (default 2, `0` = all), `check` lines first, with output buffered and printed in plan order. `VERIFY_DONE_QOS=background` runs them under `taskpolicy -b` (macOS efficiency cores; slower, and timing-sensitive tests may fail);
 - prints the full output of every failing line, and only the tail of each passing one, plus a passing test line's count line (`Tests  36 passed`) when the tail would cut it;
 - ends with `verify-run: result=PASS|FAIL mode=scoped|full [selected=N total=M]`. The counts cover `{tests}` lines only; a scoped run whose test lines all use `{files}` omits them, and the runner's own count line is the evidence that tests ran.
 
