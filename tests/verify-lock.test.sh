@@ -30,7 +30,10 @@ work=$(mktemp -d "${TMPDIR:-/tmp}/verifylock.XXXXXX") || exit 1
 export VERIFY_LOCK_DIR="$work/locks"
 holders=()
 cleanup() {
-  [ ${#holders[@]} -gt 0 ] && kill "${holders[@]}" 2>/dev/null
+  if [ ${#holders[@]} -gt 0 ]; then
+    kill "${holders[@]}" 2>/dev/null
+    wait "${holders[@]}" 2>/dev/null
+  fi
   rm -rf "$work"
 }
 trap cleanup EXIT
@@ -106,13 +109,16 @@ waits_then_runs() {
 check "a waiter runs once the holder finishes" waits_then_runs
 
 never_overlaps() {
-  local _
+  local _ pids=()
   rm -f "$work/overlap"
   for _ in 1 2 3 4; do
     bash "$SUT" --wait 30 one -- bash -c \
       "mkdir '$work/inside' 2>/dev/null || touch '$work/overlap'; sleep 0.3; rmdir '$work/inside'" &
+    pids+=("$!")
   done
-  wait
+  # Only these four: a bare `wait` also waits out the `sleep 60` holders
+  # that earlier cases started, a minute on every run.
+  wait "${pids[@]}"
   [ ! -e "$work/overlap" ]
 }
 check "one slot never admits two holders at once" never_overlaps
