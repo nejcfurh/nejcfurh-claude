@@ -347,6 +347,93 @@ stale_not_delayed() {
 }
 check "a stale plan is refused at once, without waiting for a slot" stale_not_delayed
 
+# --- Guarded lines and VERIFY_CHANGED_FILES ---
+# Each case gets its own repository, one branch off main with db/schema.sql
+# and tests/a.test.sh, and a plan whose one line runs only when a db/ path
+# changed: the guard shape SKILL.md tells plan authors to write.
+guard_repos=()
+guard_setup() { # guard_setup — sets $repo and $plan to a fresh repository
+  repo=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-guard.XXXXXX") || return 1
+  guard_repos+=("$repo")
+  plan="$repo/.git/verify-done-plan"
+  (
+    cd "$repo" && git init -q -b main \
+      && mkdir -p db tests \
+      && printf 'create table t (id int);\n' > db/schema.sql \
+      && printf 'true\n' > tests/a.test.sh \
+      && git add -A && git commit -q -m "chore: init" \
+      && git checkout -q -b work/topic
+  ) || return 1
+  rm -f "$out"/*
+  write_plan "check${T}if grep -qE '^db/' \"\$VERIFY_CHANGED_FILES\"; then cp \"\$VERIFY_CHANGED_FILES\" $out/list; else echo skipped; fi"
+}
+ran() { [ -f "$out/list" ]; }
+
+guard_sees_unstaged() {
+  local repo plan
+  guard_setup || return 1
+  echo "-- edit" >> "$repo/db/schema.sql"
+  run >/dev/null && ran && [ "$(cat "$out/list")" = "db/schema.sql" ]
+}
+check "a guard line sees an unstaged edit to a matching path" guard_sees_unstaged
+
+guard_sees_staged_and_untracked() {
+  local repo plan
+  guard_setup || return 1
+  printf 'x\n' > "$repo/db/staged.sql" && git -C "$repo" add db/staged.sql
+  printf 'x\n' > "$repo/db/untracked.sql"
+  run >/dev/null && ran \
+    && grep -qx 'db/staged.sql' "$out/list" && grep -qx 'db/untracked.sql' "$out/list"
+}
+check "a guard line sees staged and untracked matching paths" guard_sees_staged_and_untracked
+
+guard_same_before_and_after_commit() {
+  local repo plan
+  guard_setup || return 1
+  echo "-- edit" >> "$repo/db/schema.sql"
+  run >/dev/null && ran || return 1
+  rm -f "$out/list"
+  git -C "$repo" commit -q -am "feat: edit schema" || return 1
+  run >/dev/null && ran && [ "$(cat "$out/list")" = "db/schema.sql" ]
+}
+check "a guard line runs both before and after the commit" guard_same_before_and_after_commit
+
+guard_skips_unmatched() {
+  local repo plan
+  guard_setup || return 1
+  echo "# edit" >> "$repo/tests/a.test.sh"
+  run >/dev/null && ! ran
+}
+check "a guard line skips when no matching path changed" guard_skips_unmatched
+
+guard_list_on_forced_full() {
+  local repo plan
+  guard_setup || return 1
+  echo "-- edit" >> "$repo/db/schema.sql"
+  run --full | grep -q 'result=PASS mode=full' && ran && [ "$(cat "$out/list")" = "db/schema.sql" ]
+}
+check "a forced full run still lists only the changed files" guard_list_on_forced_full
+
+guard_no_merge_base_lists_all() {
+  local repo plan
+  guard_setup || return 1
+  git -C "$repo" checkout -q --orphan unrelated && git -C "$repo" commit -q -m "chore: unrelated" \
+    && git -C "$repo" checkout -q work/topic || return 1
+  (cd "$repo" && bash "$SUT" --base unrelated 2>&1) >"$out/run.log"
+  ran && grep -qx 'db/schema.sql' "$out/list" && grep -qx 'tests/a.test.sh' "$out/list" \
+    && grep -q 'guarded lines see every file as changed' "$out/run.log"
+}
+check "without a merge-base every file counts as changed, so guards run" guard_no_merge_base_lists_all
+
+list_removed_after_run() {
+  local repo plan
+  guard_setup || return 1
+  write_plan "check${T}printf '%s' \"\$VERIFY_CHANGED_FILES\" > $out/path"
+  run >/dev/null && [ -n "$(cat "$out/path")" ] && [ ! -e "$(cat "$out/path")" ]
+}
+check "the changed-files list is removed when the run ends" list_removed_after_run
+
+rm -rf "${guard_repos[@]}"
 rm -rf "$repo" "$out" "$VERIFY_LOCK_DIR" "$probe_dir" "$fakebin"
 
 echo ""

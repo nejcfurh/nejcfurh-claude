@@ -270,6 +270,17 @@ forced_env() {
 }
 check "VERIFY_DONE_FULL=1 forces a full run" forced_env
 
+forced_lists_changes() {
+  reset_tree
+  echo "# edit" >> "$repo/hooks/foo.sh"
+  local out
+  out=$(scope --full)
+  printf '%s\n' "$out" | grep -qx 'reason=full run requested' \
+    && printf '%s\n' "$out" | grep -qx 'base=main' \
+    && printf '%s\n' "$out" | grep -qx 'file=hooks/foo.sh'
+}
+check "--full still reports the base and every changed file" forced_lists_changes
+
 bad_base() {
   reset_tree
   echo "# edit" >> "$repo/hooks/foo.sh"
