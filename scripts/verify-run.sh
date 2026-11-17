@@ -14,8 +14,10 @@
 # --findRelatedTests`). Commands run from the repository root.
 #
 # Usage: verify-run.sh [--full] [--base <ref>]
-# Every plan line sees the resolved PR base as $VERIFY_BASE, so a guarded
-# line diffs against the same base the test selection used.
+# Every plan line sees the resolved PR base as $VERIFY_BASE, and the path of
+# a file listing every changed file as $VERIFY_CHANGED_FILES — committed,
+# staged, unstaged and untracked. A guarded line greps that file, so it sees
+# the same changes before a commit as after it.
 # Exit: 0 every line passed, 1 a line failed, 3 plan missing, stale or not v2
 # (rediscover and rewrite it), 75 too many gates already running (re-run
 # later). A missing or stale plan is first replaced by a sibling worktree's
@@ -117,6 +119,21 @@ echo "verify-run: mode=$mode ($reason)"
 
 log_dir=$(mktemp -d "${TMPDIR:-/tmp}/verify-run.XXXXXX") || exit 2
 trap 'rm -rf "$log_dir"' EXIT
+
+# Every changed file, one per line: committed since the merge-base, staged,
+# unstaged and untracked, so a guarded line runs the same before a commit as
+# after it. Without a base to diff against the list names every file, and
+# every guard runs instead of skipping.
+export VERIFY_CHANGED_FILES="$log_dir/changed-files"
+if [ -n "${VERIFY_BASE:-}" ] && git merge-base "$VERIFY_BASE" HEAD >/dev/null 2>&1; then
+  printf '%s\n' "$scope" | sed -n 's/^file=//p' >"$VERIFY_CHANGED_FILES"
+else
+  echo "verify-run: no merge-base with the PR base; guarded lines see every file as changed"
+  {
+    git -c core.quotePath=false ls-files
+    git -c core.quotePath=false ls-files --others --exclude-standard
+  } 2>/dev/null | sort -u >"$VERIFY_CHANGED_FILES"
+fi
 
 # Setup lines may install into the tree every later line reads: serial, first.
 while IFS=$'\t' read -r kind cmd _; do

@@ -47,7 +47,7 @@ cd "$repo" || exit 2
 
 full() { # full <reason> — print the verdict and stop
   echo "mode=full"
-  echo "reason=$1"
+  if [ "$force_full" -eq 1 ]; then echo "reason=full run requested"; else echo "reason=$1"; fi
   echo "base=${base:-unknown}"
   [ -n "$changed_files" ] && printf '%s\n' "$changed_files" | sed 's/^/file=/'
   exit 0
@@ -55,8 +55,8 @@ full() { # full <reason> — print the verdict and stop
 
 changed_files=""
 
-[ "$force_full" -eq 1 ] && full "full run requested"
-
+# A forced full run still resolves the base and the changed files: plan lines
+# read both (VERIFY_BASE, VERIFY_CHANGED_FILES) to decide their own guards.
 if [ -z "$base" ]; then
   parent=$("$(dirname "$0")/detect-parent-branch.sh" 2>/dev/null)
   [ -n "$parent" ] && base="origin/$parent"
@@ -71,6 +71,7 @@ changed_files=$(
     git -c core.quotePath=false ls-files --others --exclude-standard 2>/dev/null
   } | sort -u
 )
+[ "$force_full" -eq 1 ] && full "full run requested"
 [ -n "$changed_files" ] || full "no changes against $base"
 
 added_files=$(
