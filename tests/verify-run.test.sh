@@ -20,7 +20,8 @@ fail=0
 
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@test
 export GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@test
-unset VERIFY_DONE_FULL VERIFY_RUN_LOCKED VERIFY_DONE_SLOTS VERIFY_DONE_WAIT
+unset VERIFY_DONE_FULL VERIFY_RUN_LOCKED VERIFY_DONE_SLOTS VERIFY_DONE_WAIT \
+  VERIFY_DONE_LINES VERIFY_DONE_QOS
 # Never take, or wait on, the real machine-wide gate slots.
 export VERIFY_LOCK_DIR
 VERIFY_LOCK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-locks.XXXXXX") || exit 1
@@ -154,9 +155,103 @@ check "a failing setup stops before any check" failing_setup_stops
 runs_concurrently() {
   write_plan "check${T}sleep 2" "check${T}sleep 2" "test${T}sleep 2"
   local start=$SECONDS
-  run >/dev/null && [ $((SECONDS - start)) -lt 5 ]
+  VERIFY_DONE_LINES=0 run >/dev/null && [ $((SECONDS - start)) -lt 5 ]
 }
-check "check and test lines run concurrently" runs_concurrently
+check "with the line cap off, check and test lines all run concurrently" runs_concurrently
+
+# probe.sh <name>: records its start order and how many probes run at once.
+fakebin=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-bin.XXXXXX")
+probe="$fakebin/probe.sh"
+probe_dir=$(mktemp -d "${TMPDIR:-/tmp}/hooktest-probe.XXXXXX")
+cat >"$probe" <<EOF
+mkdir -p "$probe_dir/running"
+echo "\$1" >>"$probe_dir/order"
+touch "$probe_dir/running/\$1"
+ls "$probe_dir/running" | wc -l | tr -d ' ' >>"$probe_dir/counts"
+sleep 0.5
+rm -f "$probe_dir/running/\$1"
+EOF
+reset_probe() { rm -rf "${probe_dir:?}"/*; }
+peak_lines() { sort -n "$probe_dir/counts" | tail -n1; }
+
+default_two_lines() {
+  reset_probe
+  write_plan "check${T}bash $probe a" "check${T}bash $probe b" "test${T}bash $probe c" "check${T}bash $probe d"
+  (unset VERIFY_DONE_LINES; run >/dev/null) && [ "$(wc -l <"$probe_dir/counts" | tr -d ' ')" -eq 4 ] \
+    && [ "$(peak_lines)" -eq 2 ]
+}
+check "by default at most two plan lines run at once, and two do overlap" default_two_lines
+
+one_line_serial() {
+  reset_probe
+  write_plan "check${T}bash $probe a" "check${T}bash $probe b" "test${T}bash $probe c"
+  VERIFY_DONE_LINES=1 run >/dev/null && [ "$(peak_lines)" -eq 1 ]
+}
+check "VERIFY_DONE_LINES=1 runs the lines one at a time" one_line_serial
+
+zero_lines_all() {
+  reset_probe
+  write_plan "check${T}bash $probe a" "check${T}bash $probe b" "test${T}bash $probe c"
+  VERIFY_DONE_LINES=0 run >/dev/null && [ "$(peak_lines)" -eq 3 ]
+}
+check "VERIFY_DONE_LINES=0 runs every line at once" zero_lines_all
+
+checks_start_first() {
+  reset_probe
+  write_plan "test${T}bash $probe t1" "check${T}bash $probe c1" "test${T}bash $probe t2" "check${T}bash $probe c2"
+  VERIFY_DONE_LINES=1 run >"$out/order.log" && [ "$(tr '\n' ' ' <"$probe_dir/order")" = "c1 c2 t1 t2 " ] \
+    && [ "$(grep '^=== PASS' "$out/order.log" | sed 's/.*probe.sh //' | tr '\n' ' ')" = "t1 c1 t2 c2 " ]
+}
+check "check lines start before test lines, and output stays in plan order" checks_start_first
+
+bad_lines_refused() {
+  reset_probe
+  write_plan "check${T}bash $probe a"
+  VERIFY_DONE_LINES=two run >"$out/bad.log"
+  [ $? -eq 2 ] && grep -q 'VERIFY_DONE_LINES must be a whole number' "$out/bad.log" && [ ! -e "$probe_dir/order" ]
+}
+check "a non-numeric VERIFY_DONE_LINES is refused before any line runs" bad_lines_refused
+
+# A stand-in taskpolicy that records how it was called, then runs the command.
+cat >"$fakebin/taskpolicy" <<EOF
+#!/usr/bin/env bash
+echo "\$1" >>"$out/taskpolicy-args"
+shift
+exec "\$@"
+EOF
+chmod +x "$fakebin/taskpolicy"
+
+qos_background_wraps() {
+  rm -f "$out"/*
+  write_plan "check${T}touch $out/ran" "test${T}true"
+  PATH="$fakebin:$PATH" VERIFY_DONE_QOS=background run >/dev/null && [ -f "$out/ran" ] \
+    && [ "$(sort -u "$out/taskpolicy-args")" = "-b" ] && [ "$(wc -l <"$out/taskpolicy-args" | tr -d ' ')" -eq 2 ]
+}
+check "VERIFY_DONE_QOS=background runs every check and test line under taskpolicy -b" qos_background_wraps
+
+qos_default_normal() {
+  rm -f "$out"/*
+  write_plan "check${T}touch $out/ran"
+  (unset VERIFY_DONE_QOS; PATH="$fakebin:$PATH" run >/dev/null) && [ -f "$out/ran" ] && [ ! -e "$out/taskpolicy-args" ]
+}
+check "by default lines run at normal QoS, without taskpolicy" qos_default_normal
+
+qos_missing_runs_plain() {
+  rm -f "$out"/*
+  write_plan "check${T}touch $out/ran"
+  local nopolicy
+  nopolicy=$(printf '%s' "$PATH" | tr ':' '\n' | grep -vx '/usr/sbin' | paste -sd: -)
+  PATH="$nopolicy" VERIFY_DONE_QOS=background run >/dev/null && [ -f "$out/ran" ]
+}
+check "VERIFY_DONE_QOS=background without taskpolicy runs the line unchanged" qos_missing_runs_plain
+
+bad_qos_refused() {
+  rm -f "$out"/*
+  write_plan "check${T}touch $out/ran"
+  VERIFY_DONE_QOS=low run >"$out/bad.log"
+  [ $? -eq 2 ] && grep -q 'VERIFY_DONE_QOS must be normal or background' "$out/bad.log" && [ ! -f "$out/ran" ]
+}
+check "an unknown VERIFY_DONE_QOS is refused before any line runs" bad_qos_refused
 
 exports_base() {
   rm -f "$out"/*
@@ -252,7 +347,7 @@ stale_not_delayed() {
 }
 check "a stale plan is refused at once, without waiting for a slot" stale_not_delayed
 
-rm -rf "$repo" "$out" "$VERIFY_LOCK_DIR"
+rm -rf "$repo" "$out" "$VERIFY_LOCK_DIR" "$probe_dir" "$fakebin"
 
 echo ""
 echo "$pass passed, $fail failed"

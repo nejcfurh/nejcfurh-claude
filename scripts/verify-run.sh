@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Runs /verify-done's cached check plan: setup lines first, one at a time,
-# then every check and test line concurrently. Test lines run in the mode
-# verify-scope.sh picks — the related tests only, or the full suite.
+# then the check and test lines, $VERIFY_DONE_LINES at a time (default 2,
+# check lines first). Test lines run in the mode verify-scope.sh picks — the
+# related tests only, or the full suite.
 #
 # Plan cache (.git/verify-done-plan), tab-separated after the fingerprint line:
 #   <fingerprint from verify-plan-fingerprint.sh>
@@ -67,6 +68,22 @@ fi
 [ -f "$plan" ] || stale "no plan cache"
 [ "$(head -n1 "$plan")" = "$fingerprint" ] || stale "plan cache is stale"
 is_v2 "$plan" || stale "plan cache is not in the tagged v2 format"
+
+# At most $VERIFY_DONE_LINES check/test lines run at once (default 2, 0 = all).
+max_lines="${VERIFY_DONE_LINES:-2}"
+case "$max_lines" in
+  "" | *[!0-9]*) echo "verify-run: VERIFY_DONE_LINES must be a whole number, got: $max_lines" >&2; exit 2 ;;
+esac
+# VERIFY_DONE_QOS=background runs check/test lines at background QoS
+# (`taskpolicy -b`): macOS keeps them on the efficiency cores. Measured on one
+# app's gate it took 4-5x as long and failed two timing-sensitive tests.
+# Where taskpolicy is missing, lines run unchanged.
+qos=()
+case "${VERIFY_DONE_QOS:-normal}" in
+  normal) ;;
+  background) command -v taskpolicy >/dev/null 2>&1 && qos=(taskpolicy -b) ;;
+  *) echo "verify-run: VERIFY_DONE_QOS must be normal or background, got: $VERIFY_DONE_QOS" >&2; exit 2 ;;
+esac
 
 # Take a gate slot only once the plan is known good, so a stale plan is
 # reported at once instead of after a wait. The run under the slot repeats
@@ -145,18 +162,28 @@ elif [ -n "$counts" ]; then
   echo "verify-run: $counts"
 fi
 
+[ "$max_lines" -eq 0 ] && max_lines=${#cmds[@]}
+[ "$max_lines" -eq 0 ] && max_lines=1
 pids=()
-i=0
-while [ "$i" -lt "${#cmds[@]}" ]; do
+launch() { # launch <index> — start one line in the background, capped by $max_lines
+  while [ "$(jobs -pr | wc -l)" -ge "$max_lines" ]; do sleep 0.2; done
   (
     start=$SECONDS
-    bash -c "${cmds[$i]}" >"$log_dir/$i.out" 2>&1
+    ${qos[@]+"${qos[@]}"} bash -c "${cmds[$1]}" >"$log_dir/$1.out" 2>&1
     rc=$?
-    echo "$((SECONDS - start))" >"$log_dir/$i.secs"
+    echo "$((SECONDS - start))" >"$log_dir/$1.secs"
     exit "$rc"
   ) &
-  pids+=("$!")
-  i=$((i + 1))
+  pids[$1]=$!
+}
+# Check lines start first: they are the quick ones, and a lint failure then
+# shows before the test run finishes. Output still prints in plan order.
+for pass_kind in check test; do
+  i=0
+  while [ "$i" -lt "${#cmds[@]}" ]; do
+    case "${labels[$i]}" in "$pass_kind"*) launch "$i" ;; esac
+    i=$((i + 1))
+  done
 done
 
 failed=0
@@ -173,7 +200,7 @@ while [ "$i" -lt "${#cmds[@]}" ]; do
       labels[i]="test (full, escalated)"
       cmds[i]="${fulls[$i]}"
       start=$SECONDS
-      if bash -c "${cmds[$i]}" >"$log_dir/$i.out" 2>&1; then status=PASS; fi
+      if ${qos[@]+"${qos[@]}"} bash -c "${cmds[$i]}" >"$log_dir/$i.out" 2>&1; then status=PASS; fi
       echo "$((SECONDS - start))" >"$log_dir/$i.secs"
     fi
   fi
