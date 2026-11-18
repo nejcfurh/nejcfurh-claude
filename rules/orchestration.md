@@ -43,6 +43,8 @@ Never spin up a fleet unprompted — this is a cost gate, since one run can spaw
 - **Progress**: one line per session, its link and state.
 - **To do**: one short imperative line per item, the user's actions first. Nothing else.
 
+**A brief whose result depends on something slow outside the child (CI, a preview build, a deploy) tells it to wait in the same turn** with a condition-based wait (Monitor with an until-loop) and finish the check. A child that ends its turn to wait reports "waiting" as its result, and the orchestrator has to prompt it again.
+
 **Rebuild both for each report from the owning system** (the forge's PR state, each session's latest report), never from the last report. The user drives children directly: a PR listed "to review" may have merged hours ago, and "do X before merging Y" outlives Y.
 
 ## Sibling sessions
