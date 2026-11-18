@@ -35,6 +35,8 @@ Before removing or changing existing code, understand why it exists: `git blame`
 
 **A test or comment that states its reason is a documented fence.** A name like "opens X with a full page load, so Y cannot catch it" records a failure someone already met. Before editing the assertion, run the case and prove the reason no longer holds. "The usual pattern covers it" is a guess, and the edited test then certifies it.
 
+**A request to reverse a recorded decision is a question until you have reported the decision.** When the code, a test name or the ticket says the current behaviour was chosen ("still adds one more", "by design"), quote it and name who decided before you edit. The requester may not know it was a choice; "checking why" followed by the change hides the answer they needed.
+
 **The fence cuts the other way too: an exception to a standing rule is a fence with a date on it.** A runbook step, comment or test assertion granting an exception ("changed by hand in production", "skipped here") is often left over from a closed migration. Before following one, read its provenance (blame, introducing change, named ticket). When it contradicts a standing rule, ask the rule's owner which is current. Never hand the forbidden action to a person able to do it: that routes around the rule and writes a stale procedure into a ticket.
 
 ## Shift left
