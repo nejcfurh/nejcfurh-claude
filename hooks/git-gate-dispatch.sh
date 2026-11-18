@@ -97,6 +97,15 @@ case "$cmd" in
     ;;
 esac
 
+# A commit or push chained after a check through `;` or a newline lands even
+# when the check failed. Runs before the push and commit gates, which judge the
+# git step as if the steps before it had passed.
+case "$cmd" in
+  *commit*|*push*)
+    run_gate pre-git-check-chain-gate.sh
+    ;;
+esac
+
 case "$cmd" in
   *push*)
     run_gate pre-push-branch-gate.sh
