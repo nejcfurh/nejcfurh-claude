@@ -73,7 +73,7 @@ The trigger is a real side effect, not the iteration count: one scripted action 
 
 **A production build on your own machine can publish.** Post-compile plugins upload source maps or create releases whenever their token is in the environment. Read the build config's upload steps and blank those tokens before the first build.
 
-**Pilot every item of a batch once before running the batch.** Before fanning out N slow or quota-drawing runs (headless sessions, CI jobs, paid API calls), run each distinct item once and read its duration, output size and result shape. One runaway or meaningless item otherwise costs the whole batch.
+**Pilot every item of a batch once before running the batch.** Before fanning out N slow or quota-drawing runs (headless sessions, CI jobs, paid API calls), run each distinct item once and read its duration, output size and result shape. One runaway or meaningless item otherwise costs the whole batch. **A duration you give the user is a count, not a recollection:** list the items (the runner's list mode, the matrix expansion), multiply by one measured item, and divide by the real parallelism. A suite parameterised across variants, products and viewports is often a hundred times larger than its name suggests.
 
 ## Copying data is a disclosure decision
 
