@@ -11,7 +11,7 @@ set -u
 # suite reports the gate as broken. Clear all of them so the suites test the
 # hooks rather than the ambient environment — the cases that exercise a bypass
 # set it themselves, per invocation, and are unaffected.
-unset SKIP_COAUTHOR_GATE SKIP_COMMIT_BRANCH_GATE SKIP_CONVENTIONAL_GATE \
+unset SKIP_CHECK_CHAIN_GATE SKIP_COAUTHOR_GATE SKIP_COMMIT_BRANCH_GATE SKIP_CONVENTIONAL_GATE \
   SKIP_GITLEAKS SKIP_GIT_GATE_NO_JQ SKIP_GIT_META_GATE \
   SKIP_GIT_SANDBOX_CONFIG_GATE SKIP_LEAK_GATE SKIP_MERGE_GATE \
   SKIP_PR_TEST_GATE SKIP_PUSH_AUTHOR_GATE SKIP_PUSH_BRANCH_GATE \
