@@ -55,7 +55,7 @@ Around every fix that targets a *pattern* rather than one call site:
 
 - **Before building:** grep for how the same *class* of problem is already solved ("must survive a page unload", "must be idempotent"). That is the shape the codebase expects; a new mechanism beside three existing ones is what a reviewer catches.
 - **Before declaring done:** grep for the literal pattern you fixed. Siblings (a paired error boundary, a duplicated handler, a copy-pasted route) routinely carry the same defect.
-- **Before changing what a shared unit needs to run** (a client-only hook, a required prop, a runtime directive): list every importer and render each route that reaches it. A typecheck passes while a server render of it fails.
+- **Before changing what a shared unit needs to run** (a client-only hook, a required prop, a runtime directive): list every importer and render each route that reaches it. A typecheck passes while a server render of it fails. The same goes for changing when a value is null or empty: a placeholder where `null` used to be makes every `value && …` branch fire early, so grep every reader of the value.
 
 **Grep the history too, when the thing you are adding used to exist.** Restoring behaviour a recent rewrite removed (a link, badge, field, tracking parameter): the deleted implementation is the specification, with decisions the request will not restate. Find it (`git log --diff-filter=D -- <area>`, or the `--stat` of the merge you pulled), read it first, and say which decisions you kept. Mirror case: reverting a file to its pre-feature version also reverts unrelated fixes made meanwhile; diff the two and keep what the feature did not own.
 
@@ -70,6 +70,8 @@ Around every fix that targets a *pattern* rather than one call site:
 Before running or recommending a bulk operation (backfill, migration loop, mass API job) against a shared, rate-limited production resource (a live third-party API like Stripe, a DB connection pool), estimate peak load = concurrency × per-item fan-out and keep it a small fraction of the budget. Start conservative and ramp; a batch job must never degrade a customer path.
 
 The trigger is a real side effect, not the iteration count: one scripted action that creates real records or makes a paid API call on shared infrastructure counts, and a freshly stood-up preview or staging environment is not exempt. Flag it before the first run. Driving a local app counts: before its first write, read the backend it resolved from its own output (a host in a returned link), never from the env file you expect it to load.
+
+**A production build on your own machine can publish.** Post-compile plugins upload source maps or create releases whenever their token is in the environment. Read the build config's upload steps and blank those tokens before the first build.
 
 **Pilot every item of a batch once before running the batch.** Before fanning out N slow or quota-drawing runs (headless sessions, CI jobs, paid API calls), run each distinct item once and read its duration, output size and result shape. One runaway or meaningless item otherwise costs the whole batch.
 
