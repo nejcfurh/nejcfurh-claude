@@ -53,6 +53,8 @@ Never spin up a fleet unprompted — this is a cost gate, since one run can spaw
 
 **A sibling you cannot see races you too.** Before creating something meant to exist once per target on shared state — an experiment on a flag, a ticket, a scheduled reminder — list what exists for it. After the write, read it back and count: two means another session did the same; stop and ask which to keep. This covers a fix as well as a creation: before you diagnose a reported failure (a flaky test, an error, a bug), search the tracker and the open PRs by the failing file or test name. Someone often owns it already, and the search costs one call against a whole investigation. When you delegate such a failure, run the search first and put its result in the brief.
 
+**Sibling PRs that each pass CI can still break the base together.** A clean `git merge-tree` proves only that no lines conflict: one PR renaming an export, a test helper or a URL shape while another adds a use of the old form merges cleanly and fails the build. Unless the base requires branches to be up to date before merge, nothing re-runs a PR's checks against its siblings. Before you report "ready to merge" while another open PR from the same plan touches the same module, merge them together in a throwaway worktree and run typecheck and the touched tests; when one PR renames or removes something, grep the other branches for the old name.
+
 ## Node discipline
 
 Topology mechanics (barriers, worktree isolation, output schemas, the verify and loop-until-dry patterns) live in the Workflow tool description; restating them here drifts. Only what it omits belongs below:
