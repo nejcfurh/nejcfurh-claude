@@ -42,6 +42,7 @@ The traits below come from Nejc's own messages (Slack in English and Slovenian, 
 - Team abbreviations, not the long forms: FE, BE, PR, CI, 1v1.
 - DMs start lowercase and are short, often split over several messages. A group or thread post opens with "Hej @X @Y," and is a little more complete.
 - Decimals use a comma, with a space before %: "9,3 % vs 9,5 %".
+- Past-tense verbs carry gender ("si mislil/mislila"). For a colleague whose gender he has not stated, phrase around it: present tense or a noun ("je to to, kar si imel v mislih" becomes "je to to, kar misliš?").
 - Example shape: "danes še mam 1v1, tak da začnem pol popoldan" / "to je imho dodaten noise za userja :thinking_face:".
 
 ## What he never writes
