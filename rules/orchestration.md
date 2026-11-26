@@ -43,7 +43,9 @@ Never spin up a fleet unprompted — this is a cost gate, since one run can spaw
 - **Progress**: one line per session, its link and state.
 - **To do**: one short imperative line per item, the user's actions first. Nothing else.
 
-**A brief whose result depends on something slow outside the child (CI, a preview build, a deploy) tells it to wait in the same turn** with a condition-based wait (Monitor with an until-loop; Monitor runs sandboxed, so a wait that calls a CLI whose login the sandbox cannot read is an unsandboxed background Bash until-loop instead) and finish the check. A child that ends its turn to wait reports "waiting" as its result, and the orchestrator has to prompt it again.
+**A brief whose result depends on something slow outside the child (CI, a preview build, a deploy) tells it to wait in the same turn** with a condition-based wait (Monitor with an until-loop; Monitor runs sandboxed, so a wait that calls a CLI whose login the sandbox cannot read is an unsandboxed background Bash until-loop instead) and finish the check. A child that ends its turn to wait reports "waiting" as its result, and the orchestrator has to prompt it again. Exception: when the child turns on the app's PR monitor (Auto-fix), the monitor's event is the wait, and polling CI on top of it is forbidden; the brief says so instead of asking for a loop.
+
+**A brief marks the source of every scope item**: the ticket, the user's own words, or the orchestrator's recommendation. A recommendation relayed without its label reads to the child as a decision, and it outlives the decision that later overrides it. The child builds only the first two, and asks before building an unlabelled item that contradicts the ticket.
 
 **Rebuild both for each report from the owning system** (the forge's PR state, each session's latest report), never from the last report. The user drives children directly: a PR listed "to review" may have merged hours ago, and "do X before merging Y" outlives Y.
 
